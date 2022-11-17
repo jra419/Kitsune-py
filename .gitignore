@@ -1,0 +1,8 @@
+# Specify filepatterns you want git to ignore.
+
+*.pcap
+*.tsv
+eval/
+tests/
+__pycache__/
+

@@ -49,7 +49,9 @@ while True:
     RMSEs.append(rmse)
 stop = time.time()
 print("Complete. Time elapsed: "+ str(stop - start))
-
+with open('rmse.txt', 'w') as f:
+    for rmse in RMSEs:
+        f.write('%s\n' % rmse)
 
 # Here we demonstrate how one can fit the RMSE scores to a log-normal distribution (useful for finding/setting a cutoff threshold \phi)
 from scipy.stats import norm

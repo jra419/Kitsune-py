@@ -401,7 +401,8 @@ class incStatDB:
         Lambda = self.get_lambda(Lambda)
         if IDs is None:
             IDs = [0,1]
-        hdrs = incStat_cov(incStat(Lambda,IDs[0]),incStat(Lambda,IDs[0]),Lambda).getHeaders(ver,suffix=False)
+        hdrs = incStat_cov(incStat(Lambda,IDs[0]),incStat(Lambda,IDs[1]),Lambda).getHeaders(ver,suffix=False)
+        # hdrs = incStat_cov(incStat(Lambda,IDs[0]),incStat(Lambda,IDs[0]),Lambda).getHeaders(ver,suffix=False)
         return [str(Lambda)+"_"+s for s in hdrs]
 
     def getHeaders_1D2D(self,Lambda=1,IDs=None, ver=1):

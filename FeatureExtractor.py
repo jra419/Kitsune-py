@@ -1,84 +1,74 @@
-#Check if cython code has been compiled
-import os
-import subprocess
-
-use_extrapolation=False #experimental correlation code
-if use_extrapolation:
-    print("Importing AfterImage Cython Library")
-    if not os.path.isfile("AfterImage.c"): #has not yet been compiled, so try to do so...
-        cmd = "python setup.py build_ext --inplace"
-        subprocess.call(cmd,shell=True)
-#Import dependencies
-import netStat as ns
-import csv
-import numpy as np
-print("Importing Scapy Library")
-from scapy.all import *
+from scapy.all import rdpcap, IP, IPv6, UDP, TCP, ARP, ICMP
+import sys
 import os.path
-import platform
 import subprocess
+import numpy as np
+import csv
+import netStat as nS
+
+print("Importing Scapy Library")
+
+# Extracts features from pcap one packet at a time using "get_next_vector()"
+# If wireshark is installed (tshark) it is used, else scapy is used.
+# If wireshark is used then a tsv file (parsed version of the pcap)
+# will be made -which you can use as your input next time
 
 
-#Extracts Kitsune features from given pcap file one packet at a time using "get_next_vector()"
-# If wireshark is installed (tshark) it is used to parse (it's faster), otherwise, scapy is used (much slower).
-# If wireshark is used then a tsv file (parsed version of the pcap) will be made -which you can use as your input next time
+def _get_tshark_path():
+    system_path = os.environ['PATH']
+    for path in system_path.split(os.pathsep):
+        filename = os.path.join(path, 'tshark')
+        if os.path.isfile(filename):
+            return filename
+    return ''
+
+
 class FE:
-    def __init__(self,file_path,limit=np.inf):
+    def __init__(self, file_path, limit=np.inf):
         self.path = file_path
         self.limit = limit
-        self.parse_type = None #unknown
+        self.parse_type = None  # unknown
         self.curPacketIndx = 0
-        self.tsvin = None #used for parsing TSV file
-        self.scapyin = None #used for parsing pcap with scapy
+        self.tsvin = None  # used for parsing TSV file
+        self.scapyin = None  # used for parsing pcap with scapy
 
-        ### Prep pcap ##
+        # Prep pcap ##
         self.__prep__()
 
-        ### Prep Feature extractor (AfterImage) ###
+        # Prep Feature extractor (AfterImage) ###
         maxHost = 100000000000
         maxSess = 100000000000
-        self.nstat = ns.netStat(np.nan, maxHost, maxSess)
-
-    def _get_tshark_path(self):
-        if platform.system() == 'Windows':
-            return 'C:\Program Files\Wireshark\\tshark.exe'
-        else:
-            system_path = os.environ['PATH']
-            for path in system_path.split(os.pathsep):
-                filename = os.path.join(path, 'tshark')
-                if os.path.isfile(filename):
-                    return filename
-        return ''
+        self.nstat = nS.netStat(np.nan, maxHost, maxSess)
 
     def __prep__(self):
-        ### Find file: ###
+        # Find file: ###
         if not os.path.isfile(self.path):  # file does not exist
             print("File: " + self.path + " does not exist")
             raise Exception()
 
-        ### check file type ###
-        type = self.path.split('.')[-1]
+        # check file type ###
+        file_type = self.path.split('.')[-1]
 
-        self._tshark = self._get_tshark_path()
-        ##If file is TSV (pre-parsed by wireshark script)
-        if type == "tsv":
+        self._tshark = _get_tshark_path()
+        # If file is TSV (pre-parsed by wireshark script)
+        if file_type == "tsv":
             self.parse_type = "tsv"
 
-        ##If file is pcap
-        elif type == "pcap" or type == 'pcapng':
+        # If file is pcap
+        elif file_type == "pcap" or file_type == 'pcapng':
             # Try parsing via tshark dll of wireshark (faster)
             if os.path.isfile(self._tshark):
                 self.pcap2tsv_with_tshark()  # creates local tsv file
                 self.path += ".tsv"
                 self.parse_type = "tsv"
-            else: # Otherwise, parse with scapy (slower)
+            else:  # Otherwise, parse with scapy (slower)
                 print("tshark not found. Trying scapy...")
                 self.parse_type = "scapy"
         else:
             print("File: " + self.path + " is not a tsv or pcap file")
             raise Exception()
 
-        ### open readers ##
+        # open readers ##
         if self.parse_type == "tsv":
             maxInt = sys.maxsize
             decrement = True
@@ -98,21 +88,28 @@ class FE:
             self.limit = min(self.limit, num_lines-1)
             self.tsvinf = open(self.path, 'rt', encoding="utf8")
             self.tsvin = csv.reader(self.tsvinf, delimiter='\t')
-            row = self.tsvin.__next__() #move iterator past header
+            self.tsvin.__next__()
 
-        else: # scapy
+        else:  # scapy
             print("Reading PCAP file via Scapy...")
             self.scapyin = rdpcap(self.path)
             self.limit = len(self.scapyin)
             print("Loaded " + str(len(self.scapyin)) + " Packets.")
 
-    def get_next_vector(self):
+    def get_next_vector(self, flag):
+
         if self.curPacketIndx == self.limit:
             if self.parse_type == 'tsv':
                 self.tsvinf.close()
             return []
 
-        ### Parse next packet ###
+        if not flag:
+            if self.parse_type == "tsv":
+                self.tsvin.__next__()
+            self.curPacketIndx = self.curPacketIndx + 1
+            return [0]
+
+        # Parse next packet ###
         if self.parse_type == "tsv":
             row = self.tsvin.__next__()
             IPtype = np.nan
@@ -128,8 +125,8 @@ class FE:
                 srcIP = row[17]
                 dstIP = row[18]
                 IPtype = 1
-            srcproto = row[6] + row[
-                8]  # UDP or TCP port: the concatenation of the two port strings will will results in an OR "[tcp|udp]"
+            # UDP/TCP port: concat of strings will result in an OR "[tcp|udp]"
+            srcproto = row[6] + row[8]
             dstproto = row[7] + row[9]  # UDP or TCP port
             srcMAC = row[2]
             dstMAC = row[3]
@@ -144,7 +141,8 @@ class FE:
                     srcproto = 'icmp'
                     dstproto = 'icmp'
                     IPtype = 0
-                elif srcIP + srcproto + dstIP + dstproto == '':  # some other protocol
+                # some other protocol
+                elif srcIP + srcproto + dstIP + dstproto == '':
                     srcIP = row[2]  # src MAC
                     dstIP = row[3]  # dst MAC
 
@@ -188,7 +186,8 @@ class FE:
                     srcproto = 'icmp'
                     dstproto = 'icmp'
                     IPtype = 0
-                elif srcIP + srcproto + dstIP + dstproto == '':  # some other protocol
+                # some other protocol
+                elif srcIP + srcproto + dstIP + dstproto == '':
                     srcIP = packet.src  # src MAC
                     dstIP = packet.dst  # dst MAC
         else:
@@ -196,23 +195,34 @@ class FE:
 
         self.curPacketIndx = self.curPacketIndx + 1
 
-
-        ### Extract Features
+        # Extract Features
         try:
-            return self.nstat.updateGetStats(IPtype, srcMAC, dstMAC, srcIP, srcproto, dstIP, dstproto,
-                                                 int(framelen),
-                                                 float(timestamp))
+            cur_pkt = [str(srcIP), str(dstIP), str(IPtype), str(srcproto), str(dstproto)]
+            # print(cur_pkt)
+            cur_pkt_stats = self.nstat.updateGetStats(IPtype, srcMAC, dstMAC, srcIP, srcproto, dstIP, dstproto,
+                                                      int(framelen), float(timestamp))
+            # if self.curPacketIndx > 1000000 and self.curPacketIndx < 1000100:
+            #     print(self.curPacketIndx)
+            #     print(cur_pkt)
+            #     print(cur_pkt_stats)
+            #     print()
+            return [cur_pkt, cur_pkt_stats]
         except Exception as e:
             print(e)
             return []
 
-
     def pcap2tsv_with_tshark(self):
         print('Parsing with tshark...')
-        fields = "-e frame.time_epoch -e frame.len -e eth.src -e eth.dst -e ip.src -e ip.dst -e tcp.srcport -e tcp.dstport -e udp.srcport -e udp.dstport -e icmp.type -e icmp.code -e arp.opcode -e arp.src.hw_mac -e arp.src.proto_ipv4 -e arp.dst.hw_mac -e arp.dst.proto_ipv4 -e ipv6.src -e ipv6.dst"
-        cmd =  '"' + self._tshark + '" -r '+ self.path +' -T fields '+ fields +' -E header=y -E occurrence=f > '+self.path+".tsv"
-        subprocess.call(cmd,shell=True)
-        print("tshark parsing complete. File saved as: "+self.path +".tsv")
+        fields = "-e frame.time_epoch -e frame.len -e eth.src -e eth.dst \
+                    -e ip.src -e ip.dst -e tcp.srcport -e tcp.dstport \
+                    -e udp.srcport -e udp.dstport -e icmp.type -e icmp.code \
+                    -e arp.opcode -e arp.src.hw_mac -e arp.src.proto_ipv4 \
+                    -e arp.dst.hw_mac -e arp.dst.proto_ipv4 \
+                    -e ipv6.src -e ipv6.dst"
+        cmd = '"' + self._tshark + '" -r ' + self.path + ' -T fields ' + \
+            fields + ' -E header=y -E occurrence=f > '+self.path+".tsv"
+        subprocess.call(cmd, shell=True)
+        print("tshark parsing complete. File saved as: "+self.path + ".tsv")
 
     def get_num_features(self):
         return len(self.nstat.getNetStatHeaders())

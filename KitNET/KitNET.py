@@ -49,23 +49,24 @@ class KitNET:
     #x: a numpy array of length n
     #Note: KitNET automatically performs 0-1 normalization on all attributes.
     def process(self,x):
-        if self.n_trained > self.FM_grace_period + self.AD_grace_period: #If both the FM and AD are in execute-mode
+        if self.n_trained >= self.FM_grace_period + self.AD_grace_period: #If both the FM and AD are in execute-mode
             return self.execute(x)
         else:
-            self.train(x)
-            return 0.0
+            return self.train(x)
 
     #force train KitNET on x
     #returns the anomaly score of x during training (do not use for alerting)
     def train(self,x):
-        if self.n_trained <= self.FM_grace_period and self.v is None: #If the FM is in train-mode, and the user has not supplied a feature mapping
+        if self.n_trained < self.FM_grace_period and self.v is None: #If the FM is in train-mode, and the user has not supplied a feature mapping
             #update the incremetnal correlation matrix
             self.FM.update(x)
-            if self.n_trained == self.FM_grace_period: #If the feature mapping should be instantiated
+            if self.n_trained == self.FM_grace_period - 1: #If the feature mapping should be instantiated
                 self.v = self.FM.cluster(self.m)
                 self.__createAD__()
                 print("The Feature-Mapper found a mapping: "+str(self.n)+" features to "+str(len(self.v))+" autoencoders.")
                 print("Feature-Mapper: execute-mode, Anomaly-Detector: train-mode")
+            self.n_trained += 1
+            return 0.0
         else: #train
             ## Ensemble Layer
             S_l1 = np.zeros(len(self.ensembleLayer))
@@ -74,10 +75,11 @@ class KitNET:
                 xi = x[self.v[a]]
                 S_l1[a] = self.ensembleLayer[a].train(xi)
             ## OutputLayer
-            self.outputLayer.train(S_l1)
-            if self.n_trained == self.AD_grace_period+self.FM_grace_period:
+            output = self.outputLayer.train(S_l1)
+            if self.n_trained == self.AD_grace_period+self.FM_grace_period - 1:
                 print("Feature-Mapper: execute-mode, Anomaly-Detector: execute-mode")
-        self.n_trained += 1
+            self.n_trained += 1
+            return output
 
     #force execute KitNET on x
     def execute(self,x):
