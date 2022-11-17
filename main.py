@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import argparse
 from datetime import datetime
 from pathlib import Path
 import numpy as np
@@ -28,28 +29,27 @@ from sklearn import metrics
 # (roughly 100x faster than the python implementation)
 # ##################  Last Tested with Anaconda 3.6.3   #######################
 
-# File location
-path = str(sys.argv[1])  # the pcap, pcapng, or tsv file to process.
-path_labels = str(sys.argv[2])
-packet_div = int(sys.argv[3])
-attack_name = str(sys.argv[4])
-packet_limit = np.Inf  # the number of packets to process
+argparser = argparse.ArgumentParser(description='Kitsune.')
+argparser.add_argument('--trace', type=str, help='Trace file path')
+argparser.add_argument('--labels', type=str, help='Trace labels file path')
+argparser.add_argument('--sampling', type=int, help='Execution phase sampling rate')
+argparser.add_argument('--fm_grace', type=int, default=100000, help='FM grace period')
+argparser.add_argument('--ad_grace', type=int, default=900000, help='AD grace period')
+argparser.add_argument('--max_ae', type=int, default=10, help='KitNET: m value')
+argparser.add_argument('--attack', type=str, help='Current trace attack name')
+args = argparser.parse_args()
 
-labels = pd.read_csv(path_labels, header=None)
+labels = pd.read_csv(args.labels, header=None)
 ts_datetime = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')[:-3]
-
-# KitNET params:
-maxAE = 10  # maximum size for any autoencoder in the ensemble layer
-FMgrace = 100000  # the number of instances taken to learn the feature mapping
-ADgrace = 900000  # the number of instances used to train the anomaly detector
+packet_limit = np.Inf
 
 outdir = str(Path(__file__).parents[0]) + '/eval'
 if not os.path.exists(str(Path(__file__).parents[0]) + '/eval'):
     os.mkdir(outdir)
-outpath = os.path.join(outdir, attack_name + '.csv')
+outpath = os.path.join(outdir, args.attack + '.csv')
 
 # Build Kitsune
-K = Kitsune(path, packet_limit, maxAE, FMgrace, ADgrace)
+K = Kitsune(args.trace, packet_limit, args.max_ae, args.fm_grace, args.ad_grace)
 
 print("Running Kitsune:")
 
@@ -70,13 +70,13 @@ while True:
         print(trace_row)
     # During the training phase, process all packets.
     # After reaching the execution phase, process w/ sampling.
-    if trace_row <= FMgrace+ADgrace:
+    if trace_row <= args.fm_grace + args.ad_grace:
         rmse = K.proc_next_packet(True)
     else:
         # At the start of the execution phase, retrieve the highest RMSE score from training.
-        if trace_row == FMgrace+ADgrace+1:
+        if trace_row == args.fm_grace + args.ad_grace + 1:
             threshold = max(RMSEs, key=float)
-        if trace_row % packet_div == 0:
+        if trace_row % args.sampling == 0:
             rmse = K.proc_next_packet(True)
         else:
             rmse = K.proc_next_packet(False)
@@ -103,7 +103,7 @@ df_kitsune = pd.DataFrame(kitsune_eval,
 df_kitsune.to_csv(outpath, index=None)
 
 # Cut all training rows.
-df_kitsune_cut = df_kitsune.drop(df_kitsune.index[range(FMgrace+ADgrace)])
+df_kitsune_cut = df_kitsune.drop(df_kitsune.index[range(args.fm_grace + args.ad_grace)])
 
 # Sort by RMSE.
 df_kitsune_cut.sort_values(by='rmse', ascending=False, inplace=True)
@@ -160,10 +160,10 @@ try:
 except ZeroDivisionError:
     f1_score = 0
 
-roc_curve_fpr, roc_curve_tpr, roc_curve_thres = metrics.roc_curve(df_kitsune.label, df_kitsune.rmse)
+roc_curve_fpr, roc_curve_tpr, roc_curve_thres = metrics.roc_curve(df_kitsune_cut.label, df_kitsune_cut.rmse)
 roc_curve_fnr = 1 - roc_curve_tpr
 
-auc = metrics.roc_auc_score(df_kitsune.label, df_kitsune.rmse)
+auc = metrics.roc_auc_score(df_kitsune_cut.label, df_kitsune_cut.rmse)
 eer = roc_curve_fpr[np.nanargmin(np.absolute((roc_curve_fnr - roc_curve_fpr)))]
 eer_sanity = roc_curve_fnr[np.nanargmin(np.absolute((roc_curve_fnr - roc_curve_fpr)))]
 
@@ -184,7 +184,7 @@ print('EER: ' + str(eer))
 print('EER sanity: ' + str(eer_sanity))
 
 # Write the eval to a txt.
-f = open('eval/' + attack_name + '.txt', 'a+')
+f = open('eval/' + args.attack + '.txt', 'a+')
 f.write('Time elapsed: ' + str(stop - start) + '\n')
 f.write('Threshold: ' + str(threshold) + '\n')
 f.write('TP: ' + str(TP) + '\n')
@@ -202,30 +202,3 @@ f.write('F1 Score: ' + str(f1_score) + '\n')
 f.write('AuC: ' + str(auc) + '\n')
 f.write('EER: ' + str(eer) + '\n')
 f.write('EER sanity: ' + str(eer_sanity) + '\n')
-
-# Plot the RMSE anomaly scores.
-# print("Plotting results")
-# plt.figure(figsize=(10, 5))
-# cmap = colors.ListedColormap(['green', 'red'])
-# bounds = [0, threshold, max(RMSEs[FMgrace+ADgrace+1:])]
-# norm = colors.BoundaryNorm(bounds, cmap.N)
-# cmap.set_over('red')
-# cmap.set_under('green')
-# fig = plt.scatter(range(FMgrace+ADgrace+1, len(RMSEs)),
-#                   RMSEs[FMgrace+ADgrace+1:],
-#                   s=0.1,
-#                   c=RMSEs[FMgrace+ADgrace+1:],
-#                   cmap=cmap,
-#                   norm=norm,
-#                   vmin=threshold,
-#                   vmax=threshold)
-# plt.yscale("log")
-# plt.title("Anomaly Scores from Kitsune's Execution Phase")
-# plt.ylabel("RMSE (log scaled)")
-# plt.xlabel("Packets")
-# plt.hlines(xmin=0, xmax=len(RMSEs), y=threshold, colors='blue', label=threshold)
-# plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.3))
-# plt.subplots_adjust(bottom=0.25)
-# figbar = plt.colorbar()
-# plt.savefig('eval/' + attack_name + '.png')
-# plt.show()
