@@ -3,215 +3,106 @@ import sys
 import os.path
 import subprocess
 import numpy as np
+import pandas as pd
 import csv
 import netStat as nS
 
 print("Importing Scapy Library")
 
-# Extracts features from pcap one packet at a time using "get_next_vector()"
-# If wireshark is installed (tshark) it is used, else scapy is used.
-# If wireshark is used then a tsv file (parsed version of the pcap)
-# will be made -which you can use as your input next time
-
-
-def _get_tshark_path():
-    system_path = os.environ['PATH']
-    for path in system_path.split(os.pathsep):
-        filename = os.path.join(path, 'tshark')
-        if os.path.isfile(filename):
-            return filename
-    return ''
-
 
 class FE:
-    def __init__(self, file_path, limit=np.inf):
+    def __init__(self, file_path, limit=np.inf, fm_grace=100000, ad_grace=900000, train_skip=False):
         self.path = file_path
         self.limit = limit
         self.parse_type = None  # unknown
-        self.curPacketIndx = 0
         self.tsvin = None  # used for parsing TSV file
         self.scapyin = None  # used for parsing pcap with scapy
 
-        # Prep pcap ##
-        self.__prep__()
+        if train_skip:
+            self.curPacketIndx = fm_grace + ad_grace
+        else:
+            self.curPacketIndx = 0
 
         # Prep Feature extractor (AfterImage) ###
         maxHost = 100000000000
         maxSess = 100000000000
         self.nstat = nS.netStat(np.nan, maxHost, maxSess)
 
-    def __prep__(self):
-        # Find file: ###
-        if not os.path.isfile(self.path):  # file does not exist
-            print("File: " + self.path + " does not exist")
-            raise Exception()
+        self.__check_csv__()
 
-        # check file type ###
-        file_type = self.path.split('.')[-1]
+    def __check_csv__(self):
+        # Check the file type.
+        file_path = self.path.split('.')[0]
 
-        self._tshark = _get_tshark_path()
-        # If file is TSV (pre-parsed by wireshark script)
-        if file_type == "tsv":
-            self.parse_type = "tsv"
+        if not os.path.isfile(file_path + '.csv'):
+            self.parse_pcap()
 
-        # If file is pcap
-        elif file_type == "pcap" or file_type == 'pcapng':
-            # Try parsing via tshark dll of wireshark (faster)
-            if os.path.isfile(self._tshark):
-                self.pcap2tsv_with_tshark()  # creates local tsv file
-                self.path += ".tsv"
-                self.parse_type = "tsv"
-            else:  # Otherwise, parse with scapy (slower)
-                print("tshark not found. Trying scapy...")
-                self.parse_type = "scapy"
-        else:
-            print("File: " + self.path + " is not a tsv or pcap file")
-            raise Exception()
-
-        # open readers ##
-        if self.parse_type == "tsv":
-            maxInt = sys.maxsize
-            decrement = True
-            while decrement:
-                # decrease the maxInt value by factor 10
-                # as long as the OverflowError occurs.
-                decrement = False
-                try:
-                    csv.field_size_limit(maxInt)
-                except OverflowError:
-                    maxInt = int(maxInt / 10)
-                    decrement = True
-
-            print("counting lines in file...")
-            num_lines = sum(1 for line in open(self.path))
-            print("There are " + str(num_lines) + " Packets.")
-            self.limit = min(self.limit, num_lines-1)
-            self.tsvinf = open(self.path, 'rt', encoding="utf8")
-            self.tsvin = csv.reader(self.tsvinf, delimiter='\t')
-            self.tsvin.__next__()
-
-        else:  # scapy
-            print("Reading PCAP file via Scapy...")
-            self.scapyin = rdpcap(self.path)
-            self.limit = len(self.scapyin)
-            print("Loaded " + str(len(self.scapyin)) + " Packets.")
+        self.df_csv = pd.read_csv(file_path + '.csv')
+        self.limit = self.df_csv.shape[0]
 
     def get_next_vector(self, flag):
 
         if self.curPacketIndx == self.limit:
-            if self.parse_type == 'tsv':
-                self.tsvinf.close()
             return []
 
         if not flag:
-            if self.parse_type == "tsv":
-                self.tsvin.__next__()
             self.curPacketIndx = self.curPacketIndx + 1
             return [0]
 
         # Parse next packet ###
-        if self.parse_type == "tsv":
-            row = self.tsvin.__next__()
-            IPtype = np.nan
-            timestamp = row[0]
-            framelen = row[1]
-            srcIP = ''
-            dstIP = ''
-            if row[4] != '':  # IPv4
-                srcIP = row[4]
-                dstIP = row[5]
+        row = self.df_csv.iloc[self.curPacketIndx]
+        IPtype = np.nan
+        timestamp = row[0]
+        framelen = row[1]
+        srcIP = ''
+        dstIP = ''
+        if row[4] != '':  # IPv4
+            srcIP = row[4]
+            dstIP = row[5]
+            IPtype = 0
+        elif row[17] != '':  # ipv6
+            srcIP = row[17]
+            dstIP = row[18]
+            IPtype = 1
+        # UDP/TCP port: concat of strings will result in an OR "[tcp|udp]"
+        srcproto = str(row[6]) + str(row[8])
+        dstproto = str(row[7]) + str(row[9])  # UDP or TCP port
+        srcMAC = row[2]
+        dstMAC = row[3]
+        if srcproto == '':  # it's a L2/L1 level protocol
+            if row[12] != '':  # is ARP
+                srcproto = 'arp'
+                dstproto = 'arp'
+                srcIP = row[14]  # src IP (ARP)
+                dstIP = row[16]  # dst IP (ARP)
                 IPtype = 0
-            elif row[17] != '':  # ipv6
-                srcIP = row[17]
-                dstIP = row[18]
-                IPtype = 1
-            # UDP/TCP port: concat of strings will result in an OR "[tcp|udp]"
-            srcproto = row[6] + row[8]
-            dstproto = row[7] + row[9]  # UDP or TCP port
-            srcMAC = row[2]
-            dstMAC = row[3]
-            if srcproto == '':  # it's a L2/L1 level protocol
-                if row[12] != '':  # is ARP
-                    srcproto = 'arp'
-                    dstproto = 'arp'
-                    srcIP = row[14]  # src IP (ARP)
-                    dstIP = row[16]  # dst IP (ARP)
-                    IPtype = 0
-                elif row[10] != '':  # is ICMP
-                    srcproto = 'icmp'
-                    dstproto = 'icmp'
-                    IPtype = 0
-                # some other protocol
-                elif srcIP + srcproto + dstIP + dstproto == '':
-                    srcIP = row[2]  # src MAC
-                    dstIP = row[3]  # dst MAC
-
-        elif self.parse_type == "scapy":
-            packet = self.scapyin[self.curPacketIndx]
-            IPtype = np.nan
-            timestamp = packet.time
-            framelen = len(packet)
-            if packet.haslayer(IP):  # IPv4
-                srcIP = packet[IP].src
-                dstIP = packet[IP].dst
+            elif row[10] != '':  # is ICMP
+                srcproto = 'icmp'
+                dstproto = 'icmp'
                 IPtype = 0
-            elif packet.haslayer(IPv6):  # ipv6
-                srcIP = packet[IPv6].src
-                dstIP = packet[IPv6].dst
-                IPtype = 1
-            else:
-                srcIP = ''
-                dstIP = ''
-
-            if packet.haslayer(TCP):
-                srcproto = str(packet[TCP].sport)
-                dstproto = str(packet[TCP].dport)
-            elif packet.haslayer(UDP):
-                srcproto = str(packet[UDP].sport)
-                dstproto = str(packet[UDP].dport)
-            else:
-                srcproto = ''
-                dstproto = ''
-
-            srcMAC = packet.src
-            dstMAC = packet.dst
-            if srcproto == '':  # it's a L2/L1 level protocol
-                if packet.haslayer(ARP):  # is ARP
-                    srcproto = 'arp'
-                    dstproto = 'arp'
-                    srcIP = packet[ARP].psrc  # src IP (ARP)
-                    dstIP = packet[ARP].pdst  # dst IP (ARP)
-                    IPtype = 0
-                elif packet.haslayer(ICMP):  # is ICMP
-                    srcproto = 'icmp'
-                    dstproto = 'icmp'
-                    IPtype = 0
-                # some other protocol
-                elif srcIP + srcproto + dstIP + dstproto == '':
-                    srcIP = packet.src  # src MAC
-                    dstIP = packet.dst  # dst MAC
-        else:
-            return []
+            # some other protocol
+            elif srcIP + srcproto + dstIP + dstproto == '':
+                srcIP = row[2]  # src MAC
+                dstIP = row[3]  # dst MAC
 
         self.curPacketIndx = self.curPacketIndx + 1
+        srcproto = srcproto.replace('nan', '')[:-2]
+        dstproto = dstproto.replace('nan', '')[:-2]
 
         # Extract Features
         try:
             cur_pkt = [str(srcIP), str(dstIP), str(IPtype), str(srcproto), str(dstproto)]
-            # print(cur_pkt)
-            cur_pkt_stats = self.nstat.updateGetStats(IPtype, srcMAC, dstMAC, srcIP, srcproto, dstIP, dstproto,
-                                                      int(framelen), float(timestamp))
-            # if self.curPacketIndx > 1000000 and self.curPacketIndx < 1000100:
-            #     print(self.curPacketIndx)
-            #     print(cur_pkt)
-            #     print(cur_pkt_stats)
-            #     print()
+
+            cur_pkt_stats = self.nstat.updateGetStats(str(IPtype), str(srcMAC), str(dstMAC), str(srcIP), srcproto, str(dstIP), dstproto, int(framelen), float(timestamp))
+            # if self.curPacketIndx == 1000000:
+            #     self.nstat.reset_stats()
+
             return [cur_pkt, cur_pkt_stats]
         except Exception as e:
             print(e)
             return []
 
-    def pcap2tsv_with_tshark(self):
+    def parse_pcap(self):
         print('Parsing with tshark...')
         fields = "-e frame.time_epoch -e frame.len -e eth.src -e eth.dst \
                     -e ip.src -e ip.dst -e tcp.srcport -e tcp.dstport \
@@ -219,10 +110,10 @@ class FE:
                     -e arp.opcode -e arp.src.hw_mac -e arp.src.proto_ipv4 \
                     -e arp.dst.hw_mac -e arp.dst.proto_ipv4 \
                     -e ipv6.src -e ipv6.dst"
-        cmd = '"' + self._tshark + '" -r ' + self.path + ' -T fields ' + \
-            fields + ' -E header=y -E occurrence=f > '+self.path+".tsv"
+        cmd = 'tshark -r ' + self.path + ' -T fields ' + \
+            fields + ' -E separator=\',\' -E header=y -E occurrence=f > ' + self.path.split('.')[0] + ".csv"
         subprocess.call(cmd, shell=True)
-        print("tshark parsing complete. File saved as: "+self.path + ".tsv")
+        print("tshark parsing complete. File saved as: " + self.path.split('.')[0] + ".csv")
 
     def get_num_features(self):
         return len(self.nstat.getNetStatHeaders())

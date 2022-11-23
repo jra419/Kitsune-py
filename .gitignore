@@ -4,5 +4,6 @@
 *.tsv
 eval/
 tests/
+KitNET/models/
 __pycache__/
 

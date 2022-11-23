@@ -1,4 +1,8 @@
+import os
 import numpy as np
+import pickle
+from pathlib import Path
+from datetime import datetime
 import KitNET.dA as AE
 import KitNET.corClust as CC
 
@@ -17,7 +21,7 @@ class KitNET:
     #feature_map: One may optionally provide a feature map instead of learning one. The map must be a list,
     #           where the i-th entry contains a list of the feature indices to be assingned to the i-th autoencoder in the ensemble.
     #           For example, [[2,5,3],[4,0,1],[6,7]]
-    def __init__(self,n,max_autoencoder_size=10,FM_grace_period=None,AD_grace_period=10000,learning_rate=0.1,hidden_ratio=0.75, feature_map = None):
+    def __init__(self,n,max_autoencoder_size=10,FM_grace_period=None,AD_grace_period=10000,learning_rate=0.1,hidden_ratio=0.75, feature_map=None, ensemble_layer=None, output_layer=None, attack=''):
         # Parameters:
         self.AD_grace_period = AD_grace_period
         if FM_grace_period is None:
@@ -35,76 +39,110 @@ class KitNET:
         # Variables
         self.n_trained = 0 # the number of training instances so far
         self.n_executed = 0 # the number of executed instances so far
-        self.v = feature_map
-        if self.v is None:
-            print("Feature-Mapper: train-mode, Anomaly-Detector: off-mode")
-        else:
+        self.ensemble_layer = []
+        self.output_layer = None
+        self.attack = attack
+
+        # Check if the feature map, ensemble layer and output layer are provided as input.
+        # If so, skip the training phase.
+
+        if feature_map is not None:
+            with open(feature_map, 'rb') as f_fm:
+                self.v = pickle.load(f_fm)
             self.__createAD__()
             print("Feature-Mapper: execute-mode, Anomaly-Detector: train-mode")
-        self.FM = CC.corClust(self.n) #incremental feature cluatering for the feature mapping process
-        self.ensembleLayer = []
-        self.outputLayer = None
+        else:
+            self.v = None
+            print("Feature-Mapper: train-mode, Anomaly-Detector: off-mode")
+        self.FM = CC.corClust(self.n)  # incremental feature clustering for the feature mapping process
 
-    #If FM_grace_period+AM_grace_period has passed, then this function executes KitNET on x. Otherwise, this function learns from x.
-    #x: a numpy array of length n
-    #Note: KitNET automatically performs 0-1 normalization on all attributes.
+        if ensemble_layer is not None and output_layer is not None:
+            with open(ensemble_layer, 'rb') as f_el:
+                    self.ensemble_layer = pickle.load(f_el)
+            with open(output_layer, 'rb') as f_ol:
+                    self.output_layer = pickle.load(f_ol)
+            self.n_trained = self.FM_grace_period + self.AD_grace_period + 1
+            print("Feature-Mapper: execute-mode, Anomaly-Detector: execute-mode")
+
+    #If FM_grace_period+AM_grace_period has passed, then this function executes KitNET on x.
+    # Otherwise, this function learns from x. x: a numpy array of length n
+    # Note: KitNET automatically performs 0-1 normalization on all attributes.
     def process(self,x):
-        if self.n_trained >= self.FM_grace_period + self.AD_grace_period: #If both the FM and AD are in execute-mode
+        #If both the FM and AD are in execute-mode
+        if self.n_trained >= self.FM_grace_period + self.AD_grace_period:
             return self.execute(x)
         else:
             return self.train(x)
 
-    #force train KitNET on x
-    #returns the anomaly score of x during training (do not use for alerting)
+    # force train KitNET on x
+    # returns the anomaly score of x during training (do not use for alerting)
     def train(self,x):
-        if self.n_trained < self.FM_grace_period and self.v is None: #If the FM is in train-mode, and the user has not supplied a feature mapping
-            #update the incremetnal correlation matrix
+        if self.n_trained < self.FM_grace_period and self.v is None:
+            # If the FM is in train-mode, and the user has not supplied a feature mapping
+            # update the incremetnal correlation matrix
             self.FM.update(x)
-            if self.n_trained == self.FM_grace_period - 1: #If the feature mapping should be instantiated
+            #If the feature mapping should be instantiated
+            if self.n_trained == self.FM_grace_period - 1:
                 self.v = self.FM.cluster(self.m)
                 self.__createAD__()
-                print("The Feature-Mapper found a mapping: "+str(self.n)+" features to "+str(len(self.v))+" autoencoders.")
+                print("The Feature-Mapper found a mapping: " + str(self.n) + " features to "+ str(
+                    len(self.v))+" autoencoders.")
                 print("Feature-Mapper: execute-mode, Anomaly-Detector: train-mode")
             self.n_trained += 1
             return 0.0
         else: #train
             ## Ensemble Layer
-            S_l1 = np.zeros(len(self.ensembleLayer))
-            for a in range(len(self.ensembleLayer)):
+            S_l1 = np.zeros(len(self.ensemble_layer))
+            for a in range(len(self.ensemble_layer)):
                 # make sub instance for autoencoder 'a'
                 xi = x[self.v[a]]
-                S_l1[a] = self.ensembleLayer[a].train(xi)
+                S_l1[a] = self.ensemble_layer[a].train(xi)
             ## OutputLayer
-            output = self.outputLayer.train(S_l1)
+            output = self.output_layer.train(S_l1)
             if self.n_trained == self.AD_grace_period+self.FM_grace_period - 1:
                 print("Feature-Mapper: execute-mode, Anomaly-Detector: execute-mode")
+
+                ts_datetime = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')[:-3]
+                outdir = str(Path(__file__).parents[0]) + '/models'
+                if not os.path.exists(str(Path(__file__).parents[0]) + '/models'):
+                    os.mkdir(outdir)
+                with open(outdir + '/' + self.attack + '-' + ts_datetime + '-fm' + '.txt', 'wb') as f_fm:
+                    pickle.dump(self.v, f_fm)
+                with open(outdir + '/' + self.attack + '-' + ts_datetime + '-el' + '.txt', 'wb') as f_el:
+                    pickle.dump(self.ensemble_layer, f_el)
+                with open(outdir + '/' + self.attack + '-' + ts_datetime + '-ol' + '.txt', 'wb') as f_ol:
+                    pickle.dump(self.output_layer, f_ol)
             self.n_trained += 1
             return output
 
     #force execute KitNET on x
     def execute(self,x):
         if self.v is None:
-            raise RuntimeError('KitNET Cannot execute x, because a feature mapping has not yet been learned or provided. Try running process(x) instead.')
+            raise RuntimeError(
+                'KitNET Cannot execute x, because a feature mapping has not yet been learned or provided. Try running '
+                'process(x) instead.')
         else:
             self.n_executed += 1
             ## Ensemble Layer
-            S_l1 = np.zeros(len(self.ensembleLayer))
-            for a in range(len(self.ensembleLayer)):
+            S_l1 = np.zeros(len(self.ensemble_layer))
+            for a in range(len(self.ensemble_layer)):
                 # make sub inst
                 xi = x[self.v[a]]
-                S_l1[a] = self.ensembleLayer[a].execute(xi)
+                S_l1[a] = self.ensemble_layer[a].execute(xi)
             ## OutputLayer
-            return self.outputLayer.execute(S_l1)
+            return self.output_layer.execute(S_l1)
 
     def __createAD__(self):
         # construct ensemble layer
-        for map in self.v:
-            params = AE.dA_params(n_visible=len(map), n_hidden=0, lr=self.lr, corruption_level=0, gracePeriod=0, hiddenRatio=self.hr)
-            self.ensembleLayer.append(AE.dA(params))
+        for ad_map in self.v:
+            params = AE.dA_params(n_visible=len(ad_map), n_hidden=0, lr=self.lr, corruption_level=0,
+                                  grace_period=0, hidden_ratio=self.hr)
+            self.ensemble_layer.append(AE.dA(params))
 
         # construct output layer
-        params = AE.dA_params(len(self.v), n_hidden=0, lr=self.lr, corruption_level=0, gracePeriod=0, hiddenRatio=self.hr)
-        self.outputLayer = AE.dA(params)
+        params = AE.dA_params(len(self.v), n_hidden=0, lr=self.lr, corruption_level=0,
+                              grace_period=0, hidden_ratio=self.hr)
+        self.output_layer = AE.dA(params)
 
 # Copyright (c) 2017 Yisroel Mirsky
 #

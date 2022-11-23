@@ -36,6 +36,9 @@ argparser.add_argument('--sampling', type=int, help='Execution phase sampling ra
 argparser.add_argument('--fm_grace', type=int, default=100000, help='FM grace period')
 argparser.add_argument('--ad_grace', type=int, default=900000, help='AD grace period')
 argparser.add_argument('--max_ae', type=int, default=10, help='KitNET: m value')
+argparser.add_argument('--fm_model', type=str, help='Prev. trained FM model path')
+argparser.add_argument('--el_model', type=str, help='Prev. trained EL path')
+argparser.add_argument('--ol_model', type=str, help='Prev. trained OL path')
 argparser.add_argument('--attack', type=str, help='Current trace attack name')
 args = argparser.parse_args()
 
@@ -46,18 +49,27 @@ packet_limit = np.Inf
 outdir = str(Path(__file__).parents[0]) + '/eval'
 if not os.path.exists(str(Path(__file__).parents[0]) + '/eval'):
     os.mkdir(outdir)
-outpath = os.path.join(outdir, args.attack + '.csv')
+outpath = os.path.join(outdir, args.attack + '-' + str(args.sampling) + '.csv')
+
+learning_rate = 0.1
+hidden_ratio = 0.75
+
+if args.fm_model is not None and args.el_model is not None and args.ol_model is not None:
+    train_skip = True
+    trace_row = args.fm_grace + args.ad_grace
+else:
+    train_skip = False
+    trace_row = 0
 
 # Build Kitsune
-K = Kitsune(args.trace, packet_limit, args.max_ae, args.fm_grace, args.ad_grace)
+K = Kitsune(args.trace, packet_limit, args.max_ae, args.fm_grace, args.ad_grace, learning_rate,
+            hidden_ratio, args.fm_model, args.el_model, args.ol_model, args.attack, train_skip)
 
 print("Running Kitsune:")
 
 start = time.time()
 RMSEs = []
 kitsune_eval = []
-trace_row = 0
-label_row = 0
 
 # The threshold value is obtained from the highest RMSE score during the training phase.
 threshold = 0
@@ -74,7 +86,7 @@ while True:
         rmse = K.proc_next_packet(True)
     else:
         # At the start of the execution phase, retrieve the highest RMSE score from training.
-        if trace_row == args.fm_grace + args.ad_grace + 1:
+        if trace_row == args.fm_grace + args.ad_grace + 1 and not train_skip:
             threshold = max(RMSEs, key=float)
         if trace_row % args.sampling == 0:
             rmse = K.proc_next_packet(True)
@@ -90,8 +102,6 @@ while True:
                             rmse[1], labels.iloc[trace_row - 1][0]])
     except IndexError:
         print('trace_row: ' + str(trace_row))
-        print('label_row: ' + str(label_row))
-    label_row += 1
 
 stop = time.time()
 print('Complete. Time elapsed: ' + str(stop - start))
@@ -103,7 +113,10 @@ df_kitsune = pd.DataFrame(kitsune_eval,
 df_kitsune.to_csv(outpath, index=None)
 
 # Cut all training rows.
-df_kitsune_cut = df_kitsune.drop(df_kitsune.index[range(args.fm_grace + args.ad_grace)])
+if train_skip is False:
+    df_kitsune_cut = df_kitsune.drop(df_kitsune.index[range(args.fm_grace + args.ad_grace)])
+else:
+    df_kitsune_cut = df_kitsune
 
 # Sort by RMSE.
 df_kitsune_cut.sort_values(by='rmse', ascending=False, inplace=True)
@@ -184,7 +197,7 @@ print('EER: ' + str(eer))
 print('EER sanity: ' + str(eer_sanity))
 
 # Write the eval to a txt.
-f = open('eval/' + args.attack + '.txt', 'a+')
+f = open('eval/' + args.attack + '-' + str(args.sampling) + '.txt', 'a+')
 f.write('Time elapsed: ' + str(stop - start) + '\n')
 f.write('Threshold: ' + str(threshold) + '\n')
 f.write('TP: ' + str(TP) + '\n')

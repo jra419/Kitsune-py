@@ -29,20 +29,21 @@ from KitNET.utils import *
 import json
 
 class dA_params:
-    def __init__(self,n_visible = 5, n_hidden = 3, lr=0.001, corruption_level=0.0, gracePeriod = 10000, hiddenRatio=None):
+    def __init__(self,n_visible = 5, n_hidden = 3, lr=0.001, corruption_level=0.0, grace_period = 10000, hidden_ratio=None):
         self.n_visible = n_visible# num of units in visible (input) layer
         self.n_hidden = n_hidden# num of units in hidden layer
         self.lr = lr
         self.corruption_level = corruption_level
-        self.gracePeriod = gracePeriod
-        self.hiddenRatio = hiddenRatio
+        self.grace_period = grace_period
+        self.hidden_ratio = hidden_ratio
+
 
 class dA:
     def __init__(self, params):
         self.params = params
 
-        if self.params.hiddenRatio is not None:
-            self.params.n_hidden = int(numpy.ceil(self.params.n_visible*self.params.hiddenRatio))
+        if self.params.hidden_ratio is not None:
+            self.params.n_hidden = int(numpy.ceil(self.params.n_visible*self.params.hidden_ratio))
 
         # for 0-1 normlaization
         self.norm_max = numpy.ones((self.params.n_visible,)) * -numpy.Inf
@@ -112,7 +113,7 @@ class dA:
         return z
 
     def execute(self, x): #returns MSE of the reconstruction of x
-        if self.n < self.params.gracePeriod:
+        if self.n < self.params.grace_period:
             return 0.0
         else:
             # 0-1 normalize
@@ -123,4 +124,4 @@ class dA:
 
 
     def inGrace(self):
-        return self.n < self.params.gracePeriod
+        return self.n < self.params.grace_period

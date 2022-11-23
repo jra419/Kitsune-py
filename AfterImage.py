@@ -426,18 +426,18 @@ class incStatDB:
 
     #cleans out records that have a weight less than the cutoff.
     #returns number or removed records.
-    def cleanOutOldRecords(self,cutoffWeight,curTime):
-        n = 0
-        dump = sorted(self.HT.items(), key=lambda tup: tup[1][0].getMaxW(curTime))
-        for entry in dump:
-            entry[1][0].processDecay(curTime)
-            W = entry[1][0].w
-            if W <= cutoffWeight:
-                key = entry[0]
-                del entry[1][0]
-                del self.HT[key]
-                n=n+1
-            elif W > cutoffWeight:
-                break
-        return n
+    # def cleanOutOldRecords(self,cutoffWeight,curTime):
+    #     n = 0
+    #     dump = sorted(self.HT.items(), key=lambda tup: tup[1][0].getMaxW(curTime))
+    #     for entry in dump:
+    #         entry[1][0].processDecay(curTime)
+    #         W = entry[1][0].w
+    #         if W <= cutoffWeight:
+    #             key = entry[0]
+    #             del entry[1][0]
+    #             del self.HT[key]
+    #             n=n+1
+    #         elif W > cutoffWeight:
+    #             break
+    #     return n
 
