@@ -1,10 +1,7 @@
-from scapy.all import rdpcap, IP, IPv6, UDP, TCP, ARP, ICMP
-import sys
 import os.path
 import subprocess
 import numpy as np
 import pandas as pd
-import csv
 import netStat as nS
 
 print("Importing Scapy Library")
@@ -93,7 +90,9 @@ class FE:
         try:
             cur_pkt = [str(srcIP), str(dstIP), str(IPtype), str(srcproto), str(dstproto)]
 
-            cur_pkt_stats = self.nstat.updateGetStats(str(IPtype), str(srcMAC), str(dstMAC), str(srcIP), srcproto, str(dstIP), dstproto, int(framelen), float(timestamp))
+            cur_pkt_stats = self.nstat.updateGetStats(str(IPtype), str(srcMAC), str(dstMAC),
+                                                      str(srcIP), srcproto, str(dstIP), dstproto,
+                                                      int(framelen), float(timestamp))
             # if self.curPacketIndx == 1000000:
             #     self.nstat.reset_stats()
 

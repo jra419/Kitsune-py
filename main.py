@@ -1,13 +1,10 @@
 import os
-import sys
 import time
 import argparse
 from datetime import datetime
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from matplotlib import colors
-from matplotlib import pyplot as plt
 from Kitsune import Kitsune
 from sklearn import metrics
 
