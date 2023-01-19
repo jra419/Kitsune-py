@@ -3,7 +3,6 @@
 *.pcap
 *.tsv
 eval/
-tests/
+runs/
 KitNET/models/
 __pycache__/
-

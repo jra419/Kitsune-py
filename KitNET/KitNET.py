@@ -2,7 +2,6 @@ import os
 import numpy as np
 import pickle
 from pathlib import Path
-from datetime import datetime
 import KitNET.dA as AE
 import KitNET.corClust as CC
 
@@ -109,15 +108,15 @@ class KitNET:
             if self.n_trained == self.AD_grace_period+self.FM_grace_period - 1:
                 print("Feature-Mapper: execute-mode, Anomaly-Detector: execute-mode")
 
-                ts_datetime = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')[:-3]
                 outdir = str(Path(__file__).parents[0]) + '/models'
                 if not os.path.exists(str(Path(__file__).parents[0]) + '/models'):
                     os.mkdir(outdir)
-                with open(outdir + '/' + self.attack + '-' + ts_datetime + '-fm' + '.txt', 'wb') as f_fm:
+
+                with open(outdir + '/' + self.attack + '-m-' + str(self.m) + '-fm' + '.txt', 'wb') as f_fm:
                     pickle.dump(self.v, f_fm)
-                with open(outdir + '/' + self.attack + '-' + ts_datetime + '-el' + '.txt', 'wb') as f_el:
+                with open(outdir + '/' + self.attack + '-m-' + str(self.m) + '-el' + '.txt', 'wb') as f_el:
                     pickle.dump(self.ensemble_layer, f_el)
-                with open(outdir + '/' + self.attack + '-' + ts_datetime + '-ol' + '.txt', 'wb') as f_ol:
+                with open(outdir + '/' + self.attack + '-m-' + str(self.m) + '-ol' + '.txt', 'wb') as f_ol:
                     pickle.dump(self.output_layer, f_ol)
             self.n_trained += 1
             return output

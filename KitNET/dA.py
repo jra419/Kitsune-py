@@ -25,7 +25,7 @@
 # https://github.com/yusugomori/DeepLearning
 
 import numpy
-from KitNET.utils import sigmoid
+from scipy.special import expit
 
 
 class dA_params:
@@ -72,11 +72,11 @@ class dA:
 
     # Encode
     def get_hidden_values(self, input):
-        return sigmoid(numpy.dot(input, self.W) + self.hbias)
+        return expit(numpy.dot(input, self.W) + self.hbias)
 
     # Decode
     def get_reconstructed_input(self, hidden):
-        return sigmoid(numpy.dot(hidden, self.W_prime) + self.vbias)
+        return expit(numpy.dot(hidden, self.W_prime) + self.vbias)
 
     def train(self, x):
         self.n = self.n + 1
