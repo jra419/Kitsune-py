@@ -27,9 +27,12 @@ from KitNET.KitNET import KitNET
 class Kitsune:
     def __init__(self, file_path, limit, max_autoencoder_size=10, fm_grace=None,
                  ad_grace=10000, learning_rate=0.1, hidden_ratio=0.75, feature_map=None,
-                 ensemble_layer=None, output_layer=None, attack='', train_skip=False):
+                 ensemble_layer=None, output_layer=None, train_stats=None, attack='',
+                 train_skip=False):
+
         # init packet feature extractor (AfterImage)
-        self.FE = FE(file_path, limit, fm_grace, ad_grace, train_skip)
+        self.FE = FE(file_path, limit, max_autoencoder_size, fm_grace, ad_grace,
+                     train_stats, train_skip, attack)
 
         # init Kitnet
         self.AnomDetector = KitNET(self.FE.get_num_features(), max_autoencoder_size, fm_grace,

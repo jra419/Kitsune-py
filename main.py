@@ -33,6 +33,7 @@ argparser.add_argument('--sampling', type=int, help='Execution phase sampling ra
 argparser.add_argument('--fm_grace', type=int, default=100000, help='FM grace period')
 argparser.add_argument('--ad_grace', type=int, default=900000, help='AD grace period')
 argparser.add_argument('--max_ae', type=int, default=10, help='KitNET: m value')
+argparser.add_argument('--train_stats', type=str, default=None, help='Prev. trained stats struct path')
 argparser.add_argument('--fm_model', type=str, help='Prev. trained FM model path')
 argparser.add_argument('--el_model', type=str, help='Prev. trained EL path')
 argparser.add_argument('--ol_model', type=str, help='Prev. trained OL path')
@@ -60,7 +61,8 @@ else:
 
 # Build Kitsune
 K = Kitsune(args.trace, packet_limit, args.max_ae, args.fm_grace, args.ad_grace, learning_rate,
-            hidden_ratio, args.fm_model, args.el_model, args.ol_model, args.attack, train_skip)
+            hidden_ratio, args.fm_model, args.el_model, args.ol_model, args.train_stats,
+            args.attack, train_skip)
 
 print("Running Kitsune:")
 
