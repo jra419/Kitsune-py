@@ -54,12 +54,18 @@ class incStat:
 
     def mean(self):
         if math.isnan(self.cur_mean):  # calculate it only once when necessary
-            self.cur_mean = self.CF1 / self.w
+            if self.w != 0:
+                self.cur_mean = self.CF1 / self.w
+            else:
+                self.cur_mean = 0
         return self.cur_mean
 
     def var(self):
         if math.isnan(self.cur_var):  # calculate it only once when necessary
-            self.cur_var = abs(self.CF2 / self.w - math.pow(self.mean(), 2))
+            if (self.w - math.pow(self.mean(), 2)) != 0:
+                self.cur_var = abs(self.CF2 / self.w - math.pow(self.mean(), 2))
+            else:
+                self.cur_var = 0
         return self.cur_var
 
     def std(self):
@@ -99,8 +105,14 @@ class incStat:
 
     # Calculates and pulls all stats on this stream
     def allstats_1D(self):
-        self.cur_mean = self.CF1 / self.w
-        self.cur_var = abs(self.CF2 / self.w - math.pow(self.cur_mean, 2))
+        if self.w != 0:
+            self.cur_mean = self.CF1 / self.w
+        else:
+            self.cur_mean = 0
+        if (self.w - math.pow(self.cur_mean, 2)) != 0:
+            self.cur_var = abs(self.CF2 / self.w - math.pow(self.cur_mean, 2))
+        else:
+            self.cur_var = 0
         return [self.w, self.cur_mean, self.cur_var]
 
     # Calculates and pulls all stats on this stream, and stats shared with the indicated stream
@@ -204,7 +216,10 @@ class incStat_cov:
 
     # Covariance approximation
     def cov(self):
-        return self.CF3 / self.w3
+        if self.w3 != 0:
+            return self.CF3 / self.w3
+        else:
+            return 0
 
     # Pearson corl. coef
     def pcc(self):

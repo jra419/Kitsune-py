@@ -106,20 +106,17 @@ class netStat:
         for i in range(len(self.Lambdas)):
             MIstat[(i*3):((i+1)*3)] = self.HT_MI.update_get_1D_Stats(srcMAC+srcIP, timestamp,
                                                                      datagramSize, self.Lambdas[i])
-
         # Host-Host BW: Stats on the dual traffic behavior between srcIP and dstIP
         HHstat = np.zeros((7*len(self.Lambdas,)))
         for i in range(len(self.Lambdas)):
             HHstat[(i*7):((i+1)*7)] = self.HT_H.update_get_1D2D_Stats(srcIP, dstIP, timestamp,
                                                                       datagramSize, self.Lambdas[i])
-
         # Host-Host Jitter:
         HHstat_jit = np.zeros((3*len(self.Lambdas,)))
         for i in range(len(self.Lambdas)):
             HHstat_jit[(i*3):((i+1)*3)] = self.HT_jit.update_get_1D_Stats(srcIP+dstIP, timestamp, 0,
                                                                           self.Lambdas[i],
                                                                           isTypeDiff=True)
-
         # Host-Host BW: Stats on the dual traffic behavior between srcIP and dstIP
         HpHpstat = np.zeros((7*len(self.Lambdas,)))
         if srcProtocol == 'arp':
@@ -135,7 +132,6 @@ class netStat:
                                                                              timestamp,
                                                                              datagramSize,
                                                                              self.Lambdas[i])
-
         # concatenation of stats into one stat vector
         return np.concatenate((MIstat, HHstat, HHstat_jit, HpHpstat))
 

@@ -52,6 +52,8 @@ outpath = os.path.join(outdir, args.attack + '-' + str(args.sampling) + '.csv')
 learning_rate = 0.1
 hidden_ratio = 0.75
 
+pkt_cnt_global = 0
+
 if args.fm_model is not None and args.el_model is not None and args.ol_model is not None:
     train_skip = True
     trace_row = args.fm_grace + args.ad_grace
@@ -77,6 +79,8 @@ threshold = 0
 # In this way, each observation is discarded after performing process() method.
 while True:
     trace_row += 1
+    pkt_cnt_global += 1
+
     if trace_row % 1000 == 0:
         print(trace_row)
     # During the training phase, process all packets.
@@ -87,7 +91,7 @@ while True:
         # At the start of the execution phase, retrieve the highest RMSE score from training.
         if trace_row == args.fm_grace + args.ad_grace + 1 and not train_skip:
             threshold = max(RMSEs, key=float)
-        if trace_row % args.sampling == 0:
+        if pkt_cnt_global % args.sampling == 0:
             rmse = K.proc_next_packet(True)
         else:
             rmse = K.proc_next_packet(False)
@@ -100,7 +104,7 @@ while True:
         kitsune_eval.append([rmse[0][0], rmse[0][1], rmse[0][2], rmse[0][3], rmse[0][4],
                             rmse[1], labels.iloc[trace_row - 1][0]])
     except IndexError:
-        print('trace_row: ' + str(trace_row))
+        print('pkt_cnt_global: ' + str(pkt_cnt_global))
 
 stop = time.time()
 print('Complete. Time elapsed: ' + str(stop - start))

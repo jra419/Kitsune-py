@@ -99,7 +99,6 @@ class FE:
         # Extract Features
         try:
             cur_pkt = [str(srcIP), str(dstIP), str(IPtype), str(srcproto), str(dstproto)]
-
             cur_pkt_stats = self.nstat.updateGetStats(str(IPtype), str(srcMAC), str(dstMAC),
                                                       str(srcIP), srcproto, str(dstIP), dstproto,
                                                       int(framelen), float(timestamp))
@@ -109,6 +108,10 @@ class FE:
             return [cur_pkt, cur_pkt_stats]
         except Exception as e:
             print(e)
+            print(self.curPacketIndx)
+            print(cur_pkt)
+            print(str(IPtype), str(srcMAC), str(dstMAC), str(srcIP), srcproto,
+                  str(dstIP), dstproto, int(framelen), float(timestamp))
             return []
 
     def parse_pcap(self):
