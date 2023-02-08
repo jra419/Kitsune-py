@@ -33,8 +33,10 @@ from pathlib import Path
 class netStat:
     # Datastructure for efficent network stat queries
     # HostLimit: no more that this many Host identifiers will be tracked
-    # HostSimplexLimit: no more that this many outgoing channels from each host will be tracked (purged periodically)
-    # Lambdas: a list of 'window sizes' (decay factors) to track for each stream. nan resolved to default [5,3,1,.1,.01]
+    # HostSimplexLimit: no more that this many outgoing channels from each host will be tracked
+    #   (purged periodically)
+    # Lambdas: a list of 'window sizes' (decay factors) to track for each stream.
+    #   nan resolved to default [5,3,1,.1,.01]
     def __init__(self, Lambdas=np.nan, HostLimit=255, HostSimplexLimit=1000,
                  m=10, train_stats=None, train_skip=False, attack=''):
 
@@ -42,6 +44,8 @@ class netStat:
 
         self.attack = attack
         self.m = m
+
+        self.n = 0
 
         # Lambdas
         if np.isnan(Lambdas):
@@ -99,7 +103,8 @@ class netStat:
         # Host BW: Stats on the srcIP's general Sender Statistics
         # Hstat = np.zeros((3*len(self.Lambdas,)))
         # for i in range(len(self.Lambdas)):
-        #     Hstat[(i*3):((i+1)*3)] = self.HT_H.update_get_1D_Stats(srcIP, timestamp, datagramSize, self.Lambdas[i])
+        # Hstat[(i*3):((i+1)*3)] = self.HT_H.update_get_1D_Stats(srcIP, timestamp,
+        #                                                        datagramSize, self.Lambdas[i])
 
         # MAC.IP: Stats on src MAC-IP relationships
         MIstat = np.zeros((3*len(self.Lambdas,)))
@@ -132,6 +137,18 @@ class netStat:
                                                                              timestamp,
                                                                              datagramSize,
                                                                              self.Lambdas[i])
+
+        # Clean old entries
+
+        # self.n += 1
+        # if self.n == 1000:
+        #     diff_ht_mi = self.HT_MI.clean_out_old_records(0.1)
+        #     diff_ht_h = self.HT_H.clean_out_old_records(0.1)
+        #     diff_ht_jit = self.HT_jit.clean_out_old_records(0.1)
+        #     diff_ht_hp = self.HT_Hp.clean_out_old_records(0.1)
+        #     print('Removed entries: ', diff_ht_mi + diff_ht_h + diff_ht_jit + diff_ht_hp)
+        #     self.n = 0
+
         # concatenation of stats into one stat vector
         return np.concatenate((MIstat, HHstat, HHstat_jit, HpHpstat))
 
@@ -151,7 +168,8 @@ class netStat:
                 Lambda=self.Lambdas[i], ID=None)]
             HpHpstat_headers += ["HpHp_" + h for h in self.HT_Hp.getHeaders_1D2D(
                 Lambda=self.Lambdas[i], IDs=None, ver=2)]
-        return MIstat_headers + Hstat_headers + HHstat_headers + HHjitstat_headers + HpHpstat_headers
+        return MIstat_headers + Hstat_headers + HHstat_headers + \
+            HHjitstat_headers + HpHpstat_headers
 
     def save_stats(self):
         outdir = str(Path(__file__).parents[0]) + '/KitNET/models'
@@ -159,13 +177,17 @@ class netStat:
         if not os.path.exists(str(Path(__file__).parents[0]) + '/KitNET/models'):
             os.mkdir(outdir)
 
-        with open(outdir + '/' + self.attack + '-m-' + str(self.m) + '-train-stats-jit' + '.txt', 'wb') as f_stats:
+        with open(outdir + '/' + self.attack + '-m-' + str(self.m) +
+                  '-train-stats-jit' + '.txt', 'wb') as f_stats:
             pickle.dump(jsonpickle.encode(self.HT_jit.HT), f_stats)
-        with open(outdir + '/' + self.attack + '-m-' + str(self.m) + '-train-stats-mi' + '.txt', 'wb') as f_stats:
+        with open(outdir + '/' + self.attack + '-m-' + str(self.m) +
+                  '-train-stats-mi' + '.txt', 'wb') as f_stats:
             pickle.dump(jsonpickle.encode(self.HT_MI.HT), f_stats)
-        with open(outdir + '/' + self.attack + '-m-' + str(self.m) + '-train-stats-h' + '.txt', 'wb') as f_stats:
+        with open(outdir + '/' + self.attack + '-m-' + str(self.m) +
+                  '-train-stats-h' + '.txt', 'wb') as f_stats:
             pickle.dump(jsonpickle.encode(self.HT_H.HT), f_stats)
-        with open(outdir + '/' + self.attack + '-m-' + str(self.m) + '-train-stats-hp' + '.txt', 'wb') as f_stats:
+        with open(outdir + '/' + self.attack + '-m-' + str(self.m) +
+                  '-train-stats-hp' + '.txt', 'wb') as f_stats:
             pickle.dump(jsonpickle.encode(self.HT_Hp.HT), f_stats)
 
     def reset_stats(self):

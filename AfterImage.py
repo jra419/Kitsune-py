@@ -460,16 +460,8 @@ class incStatDB:
         hdrs = ["radius"+ID, "magnitude"+ID]
         return [str(Lambda)+"_"+s for s in hdrs]
 
-    # Cleans out records that have a weight less than the cutoff.
-    # Returns number or removed records.
-    def cleanOutOldRecords(self, cutoffWeight, curTime):
-        n = 0
-        dump = sorted(self.HT.items(), key=lambda tup: tup[1].w)
-        for entry in dump:
-            W = entry[1].w
-            if W <= cutoffWeight:
-                n = n + 1
-                key = entry[0]
-                del self.HT[key]
-            elif W > cutoffWeight:
-                break
+    def clean_out_old_records(self, cutoffWeight):
+        before = len(self.HT)
+        self.HT = {k: v for (k, v) in self.HT.items() if v.w > cutoffWeight}
+        after = len(self.HT)
+        return after - before

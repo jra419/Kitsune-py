@@ -33,7 +33,7 @@ argparser.add_argument('--sampling', type=int, help='Execution phase sampling ra
 argparser.add_argument('--fm_grace', type=int, default=100000, help='FM grace period')
 argparser.add_argument('--ad_grace', type=int, default=900000, help='AD grace period')
 argparser.add_argument('--max_ae', type=int, default=10, help='KitNET: m value')
-argparser.add_argument('--train_stats', type=str, default=None, help='Prev. trained stats struct path')
+argparser.add_argument('--train_stats', type=str, default=None, help='Prev. trained stats path')
 argparser.add_argument('--fm_model', type=str, help='Prev. trained FM model path')
 argparser.add_argument('--el_model', type=str, help='Prev. trained EL path')
 argparser.add_argument('--ol_model', type=str, help='Prev. trained OL path')
@@ -75,6 +75,9 @@ kitsune_eval = []
 # The threshold value is obtained from the highest RMSE score during the training phase.
 threshold = 0
 
+old_time = 0
+new_time = 0
+
 # Here we process (train/execute) each individual packet.
 # In this way, each observation is discarded after performing process() method.
 while True:
@@ -82,6 +85,9 @@ while True:
     pkt_cnt_global += 1
 
     if trace_row % 1000 == 0:
+        new_time = time.time()
+        print('Elapsed time: ', new_time - old_time)
+        old_time = new_time
         print(trace_row)
     # During the training phase, process all packets.
     # After reaching the execution phase, process w/ sampling.
@@ -112,7 +118,8 @@ print('Threshold: ' + str(threshold))
 
 # Collect the processed packets' RMSE, label, and save to a csv.
 df_kitsune = pd.DataFrame(kitsune_eval,
-                          columns=['ip_src', 'ip_dst', 'ip_type', 'src_proto', 'dst_proto', 'rmse', 'label'])
+                          columns=['ip_src', 'ip_dst', 'ip_type', 'src_proto',
+                                   'dst_proto', 'rmse', 'label'])
 df_kitsune.to_csv(outpath, index=None)
 
 # Cut all training rows.
@@ -176,7 +183,8 @@ try:
 except ZeroDivisionError:
     f1_score = 0
 
-roc_curve_fpr, roc_curve_tpr, roc_curve_thres = metrics.roc_curve(df_kitsune_cut.label, df_kitsune_cut.rmse)
+roc_curve_fpr, roc_curve_tpr, roc_curve_thres = metrics.roc_curve(df_kitsune_cut.label,
+                                                                  df_kitsune_cut.rmse)
 roc_curve_fnr = 1 - roc_curve_tpr
 
 auc = metrics.roc_auc_score(df_kitsune_cut.label, df_kitsune_cut.rmse)

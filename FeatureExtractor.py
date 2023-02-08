@@ -8,8 +8,9 @@ print("Importing Scapy Library")
 
 
 class FE:
-    def __init__(self, file_path, limit=np.inf, max_autoencoder_size=10, fm_grace=100000,
-                 ad_grace=900000, train_stats=None, train_skip=False, attack=''):
+    def __init__(self, file_path, limit=np.inf, max_autoencoder_size=10,
+                 fm_grace=100000, ad_grace=900000, train_stats=None,
+                 train_skip=False, attack=''):
 
         self.path = file_path
         self.limit = limit
@@ -98,11 +99,15 @@ class FE:
 
         # Extract Features
         try:
-            cur_pkt = [str(srcIP), str(dstIP), str(IPtype), str(srcproto), str(dstproto)]
-            cur_pkt_stats = self.nstat.updateGetStats(str(IPtype), str(srcMAC), str(dstMAC),
-                                                      str(srcIP), srcproto, str(dstIP), dstproto,
-                                                      int(framelen), float(timestamp))
-            if not self.train_skip and self.curPacketIndx == self.fm_grace + self.ad_grace:
+            cur_pkt = [str(srcIP), str(dstIP), str(IPtype),
+                       str(srcproto), str(dstproto)]
+            cur_pkt_stats = self.nstat.updateGetStats(str(IPtype), str(srcMAC),
+                                                      str(dstMAC), str(srcIP),
+                                                      srcproto, str(dstIP),
+                                                      dstproto, int(framelen),
+                                                      float(timestamp))
+            if not self.train_skip and self.curPacketIndx == \
+                    self.fm_grace + self.ad_grace:
                 self.nstat.save_stats()
 
             return [cur_pkt, cur_pkt_stats]
@@ -120,12 +125,14 @@ class FE:
                     -e ip.src -e ip.dst -e ip.len -e ip.proto -e tcp.srcport \
                     -e tcp.dstport -e udp.srcport -e udp.dstport -e icmp.type \
                     -e icmp.code -e arp.opcode -e arp.src.hw_mac \
-                    -e arp.src.proto_ipv4 -e arp.dst.hw_mac -e arp.dst.proto_ipv4 \
-                    -e ipv6.src -e ipv6.dst"
+                    -e arp.src.proto_ipv4 -e arp.dst.hw_mac \
+                    -e arp.dst.proto_ipv4 -e ipv6.src -e ipv6.dst"
         cmd = 'tshark -r ' + self.path + ' -T fields ' + \
-            fields + ' -E separator=\',\' -E header=y -E occurrence=f > ' + self.path.split('.')[0] + ".csv"
+            fields + ' -E separator=\',\' -E header=y -E occurrence=f > ' + \
+            self.path.split('.')[0] + ".csv"
         subprocess.call(cmd, shell=True)
-        print("tshark parsing complete. File saved as: " + self.path.split('.')[0] + ".csv")
+        print("tshark parsing complete. File saved as: " +
+              self.path.split('.')[0] + ".csv")
 
     def get_num_features(self):
         return len(self.nstat.getNetStatHeaders())
