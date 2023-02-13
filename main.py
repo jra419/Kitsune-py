@@ -29,7 +29,7 @@ from sklearn import metrics
 argparser = argparse.ArgumentParser(description='Kitsune.')
 argparser.add_argument('--trace', type=str, help='Trace file path')
 argparser.add_argument('--labels', type=str, help='Trace labels file path')
-argparser.add_argument('--sampling', type=int, help='Execution phase sampling rate')
+argparser.add_argument('--sampling', type=int, default=1, help='Execution phase sampling rate')
 argparser.add_argument('--fm_grace', type=int, default=100000, help='FM grace period')
 argparser.add_argument('--ad_grace', type=int, default=900000, help='AD grace period')
 argparser.add_argument('--max_ae', type=int, default=10, help='KitNET: m value')
@@ -86,9 +86,9 @@ while True:
 
     if trace_row % 1000 == 0:
         new_time = time.time()
-        print('Elapsed time: ', new_time - old_time)
-        old_time = new_time
+        print(f'Elapsed time: {new_time - old_time} ({int(1000/(new_time - old_time))} pps)')
         print(trace_row)
+        old_time = new_time
     # During the training phase, process all packets.
     # After reaching the execution phase, process w/ sampling.
     if trace_row <= args.fm_grace + args.ad_grace:

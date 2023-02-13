@@ -56,10 +56,10 @@ class KitNET:
             with open(feature_map, 'rb') as f_fm:
                 self.v = pickle.load(f_fm)
             self.__createAD__()
-            print("Feature-Mapper: execute-mode, Anomaly-Detector: train-mode")
+            print("Feature-Mapper: execute-mode, Anomaly-Detector: train-mode", flush=True)
         else:
             self.v = None
-            print("Feature-Mapper: train-mode, Anomaly-Detector: off-mode")
+            print("Feature-Mapper: train-mode, Anomaly-Detector: off-mode", flush=True)
         self.FM = CC.corClust(self.n)  # incremental feature clustering for the feature mapping process
 
         if ensemble_layer is not None and output_layer is not None:
@@ -68,7 +68,7 @@ class KitNET:
             with open(output_layer, 'rb') as f_ol:
                 self.output_layer = pickle.load(f_ol)
             self.n_trained = self.FM_grace_period + self.AD_grace_period + 1
-            print("Feature-Mapper: execute-mode, Anomaly-Detector: execute-mode")
+            print("Feature-Mapper: execute-mode, Anomaly-Detector: execute-mode", flush=True)
 
     # If FM_grace_period+AM_grace_period has passed, then this function executes KitNET on x.
     # Otherwise, this function learns from x. x: a numpy array of length n

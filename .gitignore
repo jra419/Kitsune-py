@@ -6,3 +6,4 @@ eval/
 runs/
 KitNET/models/
 __pycache__/
+*.csv

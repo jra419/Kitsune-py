@@ -4,9 +4,6 @@ import numpy as np
 import pandas as pd
 import netStat as nS
 
-print("Importing Scapy Library")
-
-
 class FE:
     def __init__(self, file_path, limit=np.inf, max_autoencoder_size=10,
                  fm_grace=100000, ad_grace=900000, train_stats=None,

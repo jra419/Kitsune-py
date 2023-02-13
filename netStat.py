@@ -1,6 +1,9 @@
 import sys
 import os
 import numpy as np
+# import pyximport
+# pyximport.install()
+# import AfterImage_extrapolate as af
 import AfterImage as af
 import pickle
 import jsonpickle
