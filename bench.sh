@@ -14,7 +14,7 @@ LABELS_MOCK_FILE="labels-mock.txt"
 
 AD_GRACE=9000
 FM_GRACE=1000
-NUM_PKTS=20000
+NUM_PKTS=100000
 
 if [ "$#" -ne 1 ]; then
 	echo "Usage: $0 <pcap>"
