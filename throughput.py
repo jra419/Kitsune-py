@@ -44,6 +44,7 @@ if __name__ == '__main__':
 
     pkt_cnt_global       = 0
     pkt_cnt_execution    = 0
+    execution_bytes      = 0
     training_start_time  = time.time()
     execution_start_time = -1
 
@@ -62,7 +63,7 @@ if __name__ == '__main__':
         # During the training phase, process all packets.
         # After reaching the execution phase, process w/ sampling.
         if trace_row <= args.fm_grace + args.ad_grace:
-            rmse = K.proc_next_packet(True)
+            rmse, framelen = K.proc_next_packet(True)
         else:
             # At the start of the execution phase, retrieve the highest RMSE score from training.
             if execution_start_time == -1:
@@ -72,11 +73,12 @@ if __name__ == '__main__':
                 break
                 
             if pkt_cnt_global % args.sampling == 0:
-                rmse = K.proc_next_packet(True)
+                rmse,framelen = K.proc_next_packet(True)
             else:
-                rmse = K.proc_next_packet(False)
+                rmse,framelen = K.proc_next_packet(False)
             
             pkt_cnt_execution += 1
+            execution_bytes   += framelen
 
         if rmse == -1:
             break
@@ -86,14 +88,15 @@ if __name__ == '__main__':
 
     stop = time.time()
 
-    training_time   = stop - training_start_time
-    execution_time  = stop - execution_start_time
-    processing_rate = int(pkt_cnt_execution / execution_time)
+    training_time       = stop - training_start_time
+    execution_time      = stop - execution_start_time
+    processing_rate_pps = int(pkt_cnt_execution / execution_time)
+    processing_rate_bps = int((execution_bytes * 8) / execution_time)
 
     print(f'Training time:   {training_time} s')
     print(f'Execution time:  {execution_time} s')
-    print(f'Processing rate: {processing_rate} pps')
+    print(f'Processing rate: {processing_rate_pps} pps {processing_rate_bps} bps')
 
     OUT_FILE = f'{args.attack}.csv'
     with open(OUT_FILE, 'w') as f:
-        f.write(f'{training_time},{execution_time},{processing_rate}\n')
+        f.write(f'{training_time},{execution_time},{processing_rate_pps},{processing_rate_bps}\n')

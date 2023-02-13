@@ -94,6 +94,7 @@ class FE:
         srcproto = srcproto.replace('nan', '')[:-2]
         dstproto = dstproto.replace('nan', '')[:-2]
 
+
         # Extract Features
         try:
             cur_pkt = [str(srcIP), str(dstIP), str(IPtype),
@@ -107,7 +108,7 @@ class FE:
                     self.fm_grace + self.ad_grace:
                 self.nstat.save_stats()
 
-            return [cur_pkt, cur_pkt_stats]
+            return [cur_pkt, cur_pkt_stats, framelen]
         except Exception as e:
             print(e)
             print(self.curPacketIndx)

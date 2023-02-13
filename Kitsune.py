@@ -46,8 +46,8 @@ class Kitsune:
         # Else if this cur packet is to be processed due to sampling, proceed to the classifier.
         # Else, skip the packet classification and return 0.
         if len(x) == 0:
-            return -1
+            return -1,-1
         elif flag:
-            return [x[0], self.AnomDetector.process(x[1])]
+            return [x[0], self.AnomDetector.process(x[1])],x[2]
         else:
-            return 0
+            return 0,x[2]
