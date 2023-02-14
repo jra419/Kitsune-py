@@ -92,23 +92,23 @@ while True:
     # During the training phase, process all packets.
     # After reaching the execution phase, process w/ sampling.
     if trace_row <= args.fm_grace + args.ad_grace:
-        rmse = K.proc_next_packet(True)
+        [ pkt, rmse ], framelen, (dt, dt_fe, dt_ad) = K.proc_next_packet(True)
     else:
         # At the start of the execution phase, retrieve the highest RMSE score from training.
         if trace_row == args.fm_grace + args.ad_grace + 1 and not train_skip:
             threshold = max(RMSEs, key=float)
         if pkt_cnt_global % args.sampling == 0:
-            rmse = K.proc_next_packet(True)
+            [ pkt, rmse ], framelen, (dt, dt_fe, dt_ad) = K.proc_next_packet(True)
         else:
-            rmse = K.proc_next_packet(False)
+            [ pkt, rmse ], framelen, (dt, dt_fe, dt_ad) = K.proc_next_packet(False)
     if rmse == -1:
         break
     if rmse == 0:
         continue
-    RMSEs.append(rmse[1])
+    RMSEs.append(rmse)
     try:
-        kitsune_eval.append([rmse[0][0], rmse[0][1], rmse[0][2], rmse[0][3], rmse[0][4],
-                            rmse[1], labels.iloc[trace_row - 1][0]])
+        kitsune_eval.append([pkt[0], pkt[1], pkt[2], pkt[3], pkt[4],
+                            rmse, labels.iloc[trace_row - 1][0]])
     except IndexError:
         print('pkt_cnt_global: ' + str(pkt_cnt_global))
 

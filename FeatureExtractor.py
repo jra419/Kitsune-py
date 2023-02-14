@@ -44,11 +44,11 @@ class FE:
     def get_next_vector(self, flag):
 
         if self.curPacketIndx == self.limit:
-            return []
+            return [ -1, -1, -1 ]
 
         if not flag:
             self.curPacketIndx = self.curPacketIndx + 1
-            return [0]
+            return [ 0, 0, 0 ]
 
         # Parse next packet ###
         IPtype = np.nan
@@ -115,7 +115,7 @@ class FE:
             print(cur_pkt)
             print(str(IPtype), str(srcMAC), str(dstMAC), str(srcIP), srcproto,
                   str(dstIP), dstproto, int(framelen), float(timestamp))
-            return []
+            return [ -1, -1, -1 ]
 
     def parse_pcap(self):
         print('Parsing with tshark...')

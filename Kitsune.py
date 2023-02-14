@@ -1,6 +1,8 @@
 from FeatureExtractor import FE
 from KitNET.KitNET import KitNET
 
+import time
+
 # MIT License
 #
 # Copyright (c) 2018 Yisroel mirsky
@@ -29,7 +31,6 @@ class Kitsune:
                  ad_grace=10000, learning_rate=0.1, hidden_ratio=0.75, feature_map=None,
                  ensemble_layer=None, output_layer=None, train_stats=None, attack='',
                  train_skip=False):
-
         # init packet feature extractor (AfterImage)
         self.FE = FE(file_path, limit, max_autoencoder_size, fm_grace, ad_grace,
                      train_stats, train_skip, attack)
@@ -40,14 +41,26 @@ class Kitsune:
                                    ensemble_layer, output_layer, attack)
 
     def proc_next_packet(self, flag):
-        x = self.FE.get_next_vector(flag)
+        start = time.time()
+
+        pkt, pktstats, pktlen = self.FE.get_next_vector(flag)
+
+        fe_end = time.time()
 
         # If the trace has ended, return -1.
         # Else if this cur packet is to be processed due to sampling, proceed to the classifier.
         # Else, skip the packet classification and return 0.
-        if len(x) == 0:
-            return -1,-1
+        if pkt == -1:
+            rmse = -1            
         elif flag:
-            return [x[0], self.AnomDetector.process(x[1])],x[2]
+            rmse = self.AnomDetector.process(pktstats)
         else:
-            return 0,x[2]
+            rmse = 0
+        
+        ad_end = time.time()
+
+        dt    = ad_end - start
+        dt_fe = fe_end - start
+        dt_ad = ad_end - fe_end
+
+        return [ pkt, rmse ], pktlen, (dt, dt_fe, dt_ad)

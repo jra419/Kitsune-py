@@ -6,6 +6,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 WORKDIR /opt
 
 RUN apt update
+
 RUN apt -y install \
 	build-essential \
 	python3 \

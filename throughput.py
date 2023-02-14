@@ -48,6 +48,10 @@ if __name__ == '__main__':
     training_start_time  = time.time()
     execution_start_time = -1
 
+    dt_fe_total = 0
+    dt_ad_total = 0
+    dt_total    = 0
+
     # Here we process (train/execute) each individual packet.
     # In this way, each observation is discarded after performing process() method.
     while True:
@@ -63,7 +67,7 @@ if __name__ == '__main__':
         # During the training phase, process all packets.
         # After reaching the execution phase, process w/ sampling.
         if trace_row <= args.fm_grace + args.ad_grace:
-            rmse, framelen = K.proc_next_packet(True)
+            [ pkt, rmse ], framelen, (dt, dt_fe, dt_ad) = K.proc_next_packet(True)
         else:
             # At the start of the execution phase, retrieve the highest RMSE score from training.
             if execution_start_time == -1:
@@ -73,12 +77,16 @@ if __name__ == '__main__':
                 break
                 
             if pkt_cnt_global % args.sampling == 0:
-                rmse,framelen = K.proc_next_packet(True)
+                [ pkt, rmse ], framelen, (dt, dt_fe, dt_ad) = K.proc_next_packet(True)
             else:
-                rmse,framelen = K.proc_next_packet(False)
+                [ pkt, rmse ], framelen, (dt, dt_fe, dt_ad) = K.proc_next_packet(False)
             
             pkt_cnt_execution += 1
             execution_bytes   += framelen
+
+            dt_total    += dt
+            dt_fe_total += dt_fe
+            dt_ad_total += dt_ad
 
         if rmse == -1:
             break
@@ -93,10 +101,19 @@ if __name__ == '__main__':
     processing_rate_pps = int(pkt_cnt_execution / execution_time)
     processing_rate_bps = int((execution_bytes * 8) / execution_time)
 
-    print(f'Training time:   {training_time} s')
-    print(f'Execution time:  {execution_time} s')
-    print(f'Processing rate: {processing_rate_pps} pps {processing_rate_bps} bps')
+    print(f'Training time    : {training_time:8.3f} s')
+    print(f'Execution time   : {execution_time:8.3f} s')
+    print(f'FE time          : {dt_fe_total:8.3f} s ({100.0 * dt_fe_total/dt_total:5.2f}%)')
+    print(f'AD time          : {dt_ad_total:8.3f} s ({100.0 * dt_ad_total/dt_total:5.2f}%)')
+    print(f'Processing rate  : {processing_rate_pps} pps')
+    print(f'                   {processing_rate_bps} bps')
 
     OUT_FILE = f'{args.attack}.csv'
     with open(OUT_FILE, 'w') as f:
-        f.write(f'{training_time},{execution_time},{processing_rate_pps},{processing_rate_bps}\n')
+        f.write(f'{training_time},')
+        f.write(f'{execution_time},')
+        f.write(f'{dt_fe_total},')
+        f.write(f'{dt_ad_total},')
+        f.write(f'{processing_rate_pps},')
+        f.write(f'{processing_rate_bps}\n')
+
