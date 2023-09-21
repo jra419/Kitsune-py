@@ -27,7 +27,7 @@ class incStat:
 
         # update with v
         self.CF1 += v
-        self.CF2 += math.pow(v, 2)
+        self.CF2 += pow(v, 2)
         self.w += 1
         self.cur_mean = np.nan  # force recalculation if called
         self.cur_var = np.nan
@@ -42,7 +42,7 @@ class incStat:
         # check for decay
         timeDiff = timestamp - self.lastTimestamp
         if timeDiff > 0:
-            factor = math.pow(2, (-self.Lambda * timeDiff))
+            factor = pow(2, (-self.Lambda * timeDiff))
             self.CF1 = self.CF1 * factor
             self.CF2 = self.CF2 * factor
             self.w = self.w * factor
@@ -62,8 +62,8 @@ class incStat:
 
     def var(self):
         if math.isnan(self.cur_var):  # calculate it only once when necessary
-            if (self.w - math.pow(self.mean(), 2)) != 0:
-                self.cur_var = abs(self.CF2 / self.w - math.pow(self.mean(), 2))
+            if (self.w - pow(self.mean(), 2)) != 0:
+                self.cur_var = abs(self.CF2 / self.w - pow(self.mean(), 2))
             else:
                 self.cur_var = 0
         return self.cur_var
@@ -98,9 +98,9 @@ class incStat:
         return math.sqrt(A)
 
     def magnitude(self, other_incStats):  # the magnitude of a set of incStats
-        A = math.pow(self.mean(), 2)
+        A = pow(self.mean(), 2)
         for incS in other_incStats:
-            A += math.pow(incS.mean(), 2)
+            A += pow(incS.mean(), 2)
         return math.sqrt(A)
 
     # Calculates and pulls all stats on this stream
@@ -109,8 +109,8 @@ class incStat:
             self.cur_mean = self.CF1 / self.w
         else:
             self.cur_mean = 0
-        if (self.w - math.pow(self.cur_mean, 2)) != 0:
-            self.cur_var = abs(self.CF2 / self.w - math.pow(self.cur_mean, 2))
+        if (self.w - pow(self.cur_mean, 2)) != 0:
+            self.cur_var = abs(self.CF2 / self.w - pow(self.cur_mean, 2))
         else:
             self.cur_var = 0
         return [self.w, self.cur_mean, self.cur_var]
@@ -205,7 +205,7 @@ class incStat_cov:
         # check for decay cf3
         timeDiffs_cf3 = t - self.lastTimestamp_cf3
         if timeDiffs_cf3 > 0:
-            factor = math.pow(2, (-(self.incStats[micro_inc_indx].Lambda) * timeDiffs_cf3))
+            factor = pow(2, (-(self.incStats[micro_inc_indx].Lambda) * timeDiffs_cf3))
             self.CF3 *= factor
             self.w3 *= factor
             self.lastTimestamp_cf3 = t
@@ -238,13 +238,15 @@ class incStat_cov:
         return [self.incStats[0].radius([self.incStats[1]]),
                 self.incStats[0].magnitude([self.incStats[1]]), self.cov(), self.pcc()]
 
-    # calculates and pulls all correlative stats AND 2D stats AND the regular stats from both streams (incStat)
+    # calculates and pulls all correlative stats AND 2D stats
+    # AND the regular stats from both streams (incStat)
     def get_stats3(self):
         return [self.incStats[0].w, self.incStats[0].mean(), self.incStats[0].std(),
                 self.incStats[1].w, self.incStats[1].mean(), self.incStats[1].std(),
                 self.cov(), self.pcc()]
 
-    # calculates and pulls all correlative stats AND the regular stats from both incStats AND 2D stats
+    # calculates and pulls all correlative stats
+    # AND the regular stats from both incStats AND 2D stats
     def get_stats4(self):
         return [self.incStats[0].w, self.incStats[0].mean(), self.incStats[0].std(),
                 self.incStats[1].w, self.incStats[1].mean(), self.incStats[1].std(),
@@ -401,7 +403,8 @@ class incStatDB:
 
         return [np.sqrt(rad), np.sqrt(mag)]
 
-    # Updates and then pulls current 1D stats from the given ID. Automatically registers previously unknown stream IDs
+    # Updates and then pulls current 1D stats from the given ID.
+    # Automatically registers previously unknown stream IDs
     def update_get_1D_Stats(self, ID, t, v, Lambda=1, isTypeDiff=False):  # weight, mean, std
         incS = self.update(ID, t, v, Lambda, isTypeDiff)
         return incS.allstats_1D()
@@ -439,7 +442,6 @@ class incStatDB:
             IDs = [0, 1]
         hdrs = incStat_cov(incStat(Lambda, IDs[0]),
                            incStat(Lambda, IDs[1]), Lambda).getHeaders(ver, suffix=False)
-        # hdrs = incStat_cov(incStat(Lambda,IDs[0]),incStat(Lambda,IDs[0]),Lambda).getHeaders(ver,suffix=False)
         return [str(Lambda) + "_" + s for s in hdrs]
 
     def getHeaders_1D2D(self, Lambda=1, IDs=None, ver=1):
