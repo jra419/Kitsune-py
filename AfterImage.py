@@ -1,5 +1,7 @@
 import math
 import numpy as np
+from multiprocessing import Pool
+from functools import partial
 
 
 class incStat:
@@ -34,8 +36,8 @@ class incStat:
         self.cur_std = np.nan
 
         # update covs (if any)
-        for cov in self.covs:
-            cov.update_cov(self.ID, v, t)
+        # for cov in self.covs:
+        #     cov.update_cov(self.ID, v, t)
 
     def processDecay(self, timestamp):
         factor = 1
@@ -466,4 +468,21 @@ class incStatDB:
         before = len(self.HT)
         self.HT = {k: v for (k, v) in self.HT.items() if v.w > cutoffWeight}
         after = len(self.HT)
-        return after - before
+        return before - after
+
+    # def cleanOutOldRecords(self,cutoffWeight,curTime):
+    #     n = 0
+    #     # dump = sorted(self.HT.items(), key=lambda tup: tup[1][0].getMaxW(curTime))
+    #     dump = sorted(self.HT.items(), key=lambda item: item[1].w)
+    #     for entry in dump:
+    #         # entry[1][0].processDecay(curTime)
+    #         W = entry[1].w
+    #         if W <= cutoffWeight:
+    #             key = entry[0]
+    #             # del entry[1][0]
+    #             del self.HT[key]
+    #             n=n+1
+    #         elif W > cutoffWeight:
+    #             break
+    #     # print(n)
+    #     return n

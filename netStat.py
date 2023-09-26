@@ -142,15 +142,14 @@ class netStat:
                                                                              self.Lambdas[i])
 
         # Clean old entries
-
-        # self.n += 1
-        # if self.n == 1000:
-        #     diff_ht_mi = self.HT_MI.clean_out_old_records(0.1)
-        #     diff_ht_h = self.HT_H.clean_out_old_records(0.1)
-        #     diff_ht_jit = self.HT_jit.clean_out_old_records(0.1)
-        #     diff_ht_hp = self.HT_Hp.clean_out_old_records(0.1)
-        #     print('Removed entries: ', diff_ht_mi + diff_ht_h + diff_ht_jit + diff_ht_hp)
-        #     self.n = 0
+        self.n += 1
+        if self.n == 100:
+            diff_ht_mi = self.HT_MI.clean_out_old_records(0.000001)
+            diff_ht_h = self.HT_H.clean_out_old_records(0.000001)
+            diff_ht_jit = self.HT_jit.clean_out_old_records(0.000001)
+            diff_ht_hp = self.HT_Hp.clean_out_old_records(0.000001)
+            # print('Removed entries: ', diff_ht_mi + diff_ht_h + diff_ht_jit + diff_ht_hp)
+            self.n = 0
 
         # concatenation of stats into one stat vector
         return np.concatenate((MIstat, HHstat, HHstat_jit, HpHpstat))
