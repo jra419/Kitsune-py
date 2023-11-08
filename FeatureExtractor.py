@@ -7,7 +7,7 @@ import netStat as nS
 class FE:
     def __init__(self, file_path, limit=np.inf, max_autoencoder_size=10,
                  fm_grace=100000, ad_grace=900000, train_stats=None,
-                 train_skip=False, attack=''):
+                 train_skip=False, attack='', offset=0):
 
         self.path = file_path
         self.limit = limit
@@ -17,9 +17,10 @@ class FE:
         self.fm_grace = fm_grace
         self.ad_grace = ad_grace
         self.train_skip = train_skip
+        self.offset = offset
 
         if train_skip:
-            self.curPacketIndx = self.fm_grace + self.ad_grace
+            self.curPacketIndx = self.fm_grace + self.ad_grace + self.offset
         else:
             self.curPacketIndx = 0
 
@@ -43,12 +44,17 @@ class FE:
 
     def get_next_vector(self, flag):
 
+        if not self.train_skip and self.curPacketIndx == self.fm_grace + self.ad_grace:
+            self.curPacketIndx += self.offset
+
         if self.curPacketIndx == self.limit:
             return [ -1, -1, -1 ]
+
 
         if not flag:
             self.curPacketIndx = self.curPacketIndx + 1
             return [ 0, 0, 0 ]
+
 
         # Parse next packet ###
         IPtype = np.nan

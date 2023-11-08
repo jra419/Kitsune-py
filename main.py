@@ -30,6 +30,7 @@ argparser = argparse.ArgumentParser(description='Kitsune.')
 argparser.add_argument('--trace', type=str, help='Trace file path')
 argparser.add_argument('--labels', type=str, help='Trace labels file path')
 argparser.add_argument('--sampling', type=int, default=1, help='Execution phase sampling rate')
+argparser.add_argument('--offset', type=int, default=0, help='Execution phase starting offset')
 argparser.add_argument('--fm_grace', type=int, default=100000, help='FM grace period')
 argparser.add_argument('--ad_grace', type=int, default=900000, help='AD grace period')
 argparser.add_argument('--max_ae', type=int, default=10, help='KitNET: m value')
@@ -47,7 +48,7 @@ packet_limit = np.Inf
 outdir = str(Path(__file__).parents[0]) + '/eval'
 if not os.path.exists(str(Path(__file__).parents[0]) + '/eval'):
     os.mkdir(outdir)
-outpath = os.path.join(outdir, args.attack + '-' + str(args.sampling) + '.csv')
+outpath = os.path.join(outdir, args.attack + '-' + str(args.sampling) + '-o-' + str(args.offset) + '.csv')
 
 learning_rate = 0.1
 hidden_ratio = 0.75
@@ -56,7 +57,7 @@ pkt_cnt_global = 0
 
 if args.fm_model is not None and args.el_model is not None and args.ol_model is not None:
     train_skip = True
-    trace_row = args.fm_grace + args.ad_grace
+    trace_row = args.fm_grace + args.ad_grace + args.offset
 else:
     train_skip = False
     trace_row = 0
@@ -64,7 +65,7 @@ else:
 # Build Kitsune
 K = Kitsune(args.trace, packet_limit, args.max_ae, args.fm_grace, args.ad_grace, learning_rate,
             hidden_ratio, args.fm_model, args.el_model, args.ol_model, args.train_stats,
-            args.attack, train_skip)
+            args.attack, train_skip, args.offset)
 
 print("Running Kitsune:")
 
@@ -97,6 +98,7 @@ while True:
         # At the start of the execution phase, retrieve the highest RMSE score from training.
         if trace_row == args.fm_grace + args.ad_grace + 1 and not train_skip:
             threshold = max(RMSEs, key=float)
+            trace_row += args.offset
         if pkt_cnt_global % args.sampling == 0:
             [ pkt, rmse ], framelen, (dt, dt_fe, dt_ad) = K.proc_next_packet(True)
         else:
@@ -208,7 +210,7 @@ print('EER: ' + str(eer))
 print('EER sanity: ' + str(eer_sanity))
 
 # Write the eval to a txt.
-f = open('eval/' + args.attack + '-' + str(args.sampling) + '.txt', 'a+')
+f = open('eval/' + args.attack + '-' + str(args.sampling) + '-o-' + str(args.offset) + '.txt', 'a+')
 f.write('Time elapsed: ' + str(stop - start) + '\n')
 f.write('Threshold: ' + str(threshold) + '\n')
 f.write('TP: ' + str(TP) + '\n')
