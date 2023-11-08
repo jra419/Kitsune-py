@@ -1,7 +1,5 @@
 import math
 import numpy as np
-from multiprocessing import Pool
-from functools import partial
 
 
 class incStat:
@@ -324,9 +322,14 @@ class incStatDB:
         incS2 = self.register(ID2, Lambda, init_time, isTypeDiff)
 
         # Check for pre-exiting link
-        for cov in incS1.covs:
-            if cov.incStats[0].ID == ID2 or cov.incStats[1].ID == ID2:
-                return cov  # there is a pre-exiting link
+        if len(incS1.covs) < len(incS2.covs):
+            for cov in incS1.covs:
+                if cov.incStats[0].ID == ID2 or cov.incStats[1].ID == ID2:
+                    return cov  # there is a pre-exiting link
+        else:
+            for cov in incS2.covs:
+                if cov.incStats[0].ID == ID1 or cov.incStats[1].ID == ID1:
+                    return cov  # there is a pre-exiting link
 
         # Link incStats
         inc_cov = incStat_cov(incS1, incS2, init_time)
@@ -469,20 +472,3 @@ class incStatDB:
         self.HT = {k: v for (k, v) in self.HT.items() if v.w > cutoffWeight}
         after = len(self.HT)
         return before - after
-
-    # def cleanOutOldRecords(self,cutoffWeight,curTime):
-    #     n = 0
-    #     # dump = sorted(self.HT.items(), key=lambda tup: tup[1][0].getMaxW(curTime))
-    #     dump = sorted(self.HT.items(), key=lambda item: item[1].w)
-    #     for entry in dump:
-    #         # entry[1][0].processDecay(curTime)
-    #         W = entry[1].w
-    #         if W <= cutoffWeight:
-    #             key = entry[0]
-    #             # del entry[1][0]
-    #             del self.HT[key]
-    #             n=n+1
-    #         elif W > cutoffWeight:
-    #             break
-    #     # print(n)
-    #     return n
