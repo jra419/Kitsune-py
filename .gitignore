@@ -1,9 +1,14 @@
 # Specify filepatterns you want git to ignore.
 
 *.pcap
+*.csv
 *.tsv
+*.html
+*.c
+*.so
 eval/
 runs/
 KitNET/models/
 __pycache__/
-*.csv
+venv/
+build/
