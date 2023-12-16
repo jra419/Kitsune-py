@@ -68,11 +68,6 @@ class netStat:
         self.HT_H = af.incStatDB(limit=self.HostLimit)  # Source Host BW Stats
         self.HT_Hp = af.incStatDB(limit=self.SessionLimit)  # Source Host BW Stats
 
-        self.HT_jit = af.incStatDB(limit=self.HostLimit*self.HostLimit)  # H-H Jitter Stats
-        self.HT_MI = af.incStatDB(limit=self.MAC_HostLimit)  # MAC-IP relationships
-        self.HT_H = af.incStatDB(limit=self.HostLimit)  # Source Host BW Stats
-        self.HT_Hp = af.incStatDB(limit=self.SessionLimit)  # Source Host BW Stats
-
         # HTs
         if train_skip:
             with open(train_stats + '-jit.txt', 'rb') as f_stats:
@@ -108,6 +103,11 @@ class netStat:
         # for i in range(len(self.Lambdas)):
         # Hstat[(i*3):((i+1)*3)] = self.HT_H.update_get_1D_Stats(srcIP, timestamp,
         #                                                        datagramSize, self.Lambdas[i])
+        HHstat_jit = np.zeros((3*len(self.Lambdas,)))
+        for i in range(len(self.Lambdas)):
+            HHstat_jit[(i*3):((i+1)*3)] = self.HT_jit.update_get_1D_Stats(srcIP, timestamp,
+                                                                          datagramSize,
+                                                                          self.Lambdas[i])
 
         # MAC.IP: Stats on src MAC-IP relationships
         MIstat = np.zeros((3*len(self.Lambdas,)))
@@ -120,11 +120,11 @@ class netStat:
             HHstat[(i*7):((i+1)*7)] = self.HT_H.update_get_1D2D_Stats(srcIP, dstIP, timestamp,
                                                                       datagramSize, self.Lambdas[i])
         # Host-Host Jitter:
-        HHstat_jit = np.zeros((3*len(self.Lambdas,)))
-        for i in range(len(self.Lambdas)):
-            HHstat_jit[(i*3):((i+1)*3)] = self.HT_jit.update_get_1D_Stats(srcIP+dstIP, timestamp, 0,
-                                                                          self.Lambdas[i],
-                                                                          isTypeDiff=True)
+        # HHstat_jit = np.zeros((3*len(self.Lambdas,)))
+        # for i in range(len(self.Lambdas)):
+        #     HHstat_jit[(i*3):((i+1)*3)] = self.HT_jit.update_get_1D_Stats(srcIP+dstIP, timestamp, 0,
+        #                                                                   self.Lambdas[i],
+        #                                                                   isTypeDiff=True)
         # Host-Host BW: Stats on the dual traffic behavior between srcIP and dstIP
         HpHpstat = np.zeros((7*len(self.Lambdas,)))
         if srcProtocol == 'arp':
@@ -135,23 +135,26 @@ class netStat:
                                                                              self.Lambdas[i])
         else:  # some other protocol (e.g. TCP/UDP)
             for i in range(len(self.Lambdas)):
-                HpHpstat[(i*7):((i+1)*7)] = self.HT_Hp.update_get_1D2D_Stats(srcIP + srcProtocol,
-                                                                             dstIP + dstProtocol,
+                HpHpstat[(i*7):((i+1)*7)] = self.HT_Hp.update_get_1D2D_Stats(srcIP + IPtype + srcProtocol,
+                                                                             dstIP + IPtype + dstProtocol,
                                                                              timestamp,
                                                                              datagramSize,
                                                                              self.Lambdas[i])
 
         # Clean old entries
-        self.n += 1
-        if self.n == 100:
-            diff_ht_mi = self.HT_MI.clean_out_old_records(0.000001)
-            diff_ht_h = self.HT_H.clean_out_old_records(0.000001)
-            diff_ht_jit = self.HT_jit.clean_out_old_records(0.000001)
-            diff_ht_hp = self.HT_Hp.clean_out_old_records(0.000001)
+        # self.n += 1
+        # if self.n == 100:
+        #     diff_ht_mi = self.HT_MI.clean_out_old_records(0.000001)
+        #     diff_ht_h = self.HT_H.clean_out_old_records(0.000001)
+        #     diff_ht_jit = self.HT_jit.clean_out_old_records(0.000001)
+        #     diff_ht_hp = self.HT_Hp.clean_out_old_records(0.000001)
             # print('Removed entries: ', diff_ht_mi + diff_ht_h + diff_ht_jit + diff_ht_hp)
-            self.n = 0
+            # self.n = 0
 
         # concatenation of stats into one stat vector
+        print(f'{srcMAC}, {srcIP}, {dstIP}, {IPtype}, {srcProtocol}, {dstProtocol}')
+        print(np.concatenate((MIstat, HHstat, HHstat_jit, HpHpstat)))
+        print()
         return np.concatenate((MIstat, HHstat, HHstat_jit, HpHpstat))
 
     def getNetStatHeaders(self):

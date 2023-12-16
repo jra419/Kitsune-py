@@ -105,12 +105,13 @@ while True:
             [ pkt, rmse ], framelen, (dt, dt_fe, dt_ad) = K.proc_next_packet(False)
     if rmse == -1:
         break
-    if rmse == 0:
-        continue
     RMSEs.append(rmse)
     try:
         kitsune_eval.append([pkt[0], pkt[1], pkt[2], pkt[3], pkt[4],
                             rmse, labels.iloc[trace_row - 1][0]])
+        # kitsune_eval.append([rmse, labels.iloc[trace_row - 1][0]])
+        # with open(outpath, "a") as f:
+            # f.write(f'{pkt[0]},{pkt[1]},{pkt[2]},{pkt[3]},{pkt[4]},{rmse},{labels.iloc[trace_row -1][0]},{pktstats}')
     except IndexError:
         print('pkt_cnt_global: ' + str(pkt_cnt_global))
 
@@ -122,13 +123,15 @@ print('Threshold: ' + str(threshold))
 df_kitsune = pd.DataFrame(kitsune_eval,
                           columns=['ip_src', 'ip_dst', 'ip_type', 'src_proto',
                                    'dst_proto', 'rmse', 'label'])
-df_kitsune.to_csv(outpath, index=None)
+                          # columns=['rmse', 'label'])
+df_kitsune.to_csv(outpath, chunksize=10000, index=None)
 
 # Cut all training rows.
-if train_skip is False:
-    df_kitsune_cut = df_kitsune.drop(df_kitsune.index[range(args.fm_grace + args.ad_grace)])
-else:
-    df_kitsune_cut = df_kitsune
+# if train_skip is False:
+#     df_kitsune_cut = df_kitsune.drop(df_kitsune.index[range(args.fm_grace + args.ad_grace)])
+# else:
+#     df_kitsune_cut = df_kitsune
+df_kitsune_cut = df_kitsune
 
 # Sort by RMSE.
 df_kitsune_cut.sort_values(by='rmse', ascending=False, inplace=True)

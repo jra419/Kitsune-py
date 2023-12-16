@@ -51,12 +51,12 @@ class Kitsune:
         # Else if this cur packet is to be processed due to sampling, proceed to the classifier.
         # Else, skip the packet classification and return 0.
         if pkt == -1:
-            rmse = -1            
+            rmse = -1
         elif flag:
             rmse = self.AnomDetector.process(pktstats)
         else:
             rmse = 0
-        
+
         ad_end = time.time()
 
         dt    = ad_end - start

@@ -3,6 +3,7 @@ import subprocess
 import numpy as np
 import pandas as pd
 import netStat as nS
+from math import isnan
 
 class FE:
     def __init__(self, file_path, limit=np.inf, max_autoencoder_size=10,
@@ -59,18 +60,23 @@ class FE:
         # Parse next packet ###
         IPtype = np.nan
         timestamp = self.df_csv.iat[self.curPacketIndx, 0]
-        framelen = self.df_csv.iat[self.curPacketIndx, 1]
+        framelen = self.df_csv.iat[self.curPacketIndx, 6]
+        if isnan(framelen):
+            framelen = 0
         srcIP = ''
         dstIP = ''
         srcIP = self.df_csv.iat[self.curPacketIndx, 4]
         srcIPv6 = self.df_csv.iat[self.curPacketIndx, 19]
         if srcIP != '':  # IPv4
             dstIP = self.df_csv.iat[self.curPacketIndx, 5]
-            IPtype = 0
+            # IPtype = 0
         elif srcIPv6 != '':  # ipv6
             srcIP = srcIPv6
             dstIP = self.df_csv.iat[self.curPacketIndx, 20]
-            IPtype = 1
+            # IPtype = 1
+        IPtype = self.df_csv.iat[self.curPacketIndx, 7]
+        if isnan(IPtype):
+            IPtype = 0
         # UDP/TCP port: concat of strings will result in an OR "[tcp|udp]"
         srcproto = str(self.df_csv.iat[self.curPacketIndx, 8]) + \
             str(self.df_csv.iat[self.curPacketIndx, 10])
@@ -110,9 +116,9 @@ class FE:
                                                       srcproto, str(dstIP),
                                                       dstproto, int(framelen),
                                                       float(timestamp))
-            if not self.train_skip and self.curPacketIndx == \
-                    self.fm_grace + self.ad_grace:
-                self.nstat.save_stats()
+            # if not self.train_skip and self.curPacketIndx == \
+            #         self.fm_grace + self.ad_grace:
+            #     self.nstat.save_stats()
 
             return [cur_pkt, cur_pkt_stats, framelen]
         except Exception as e:

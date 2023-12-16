@@ -34,8 +34,8 @@ class incStat:
         self.cur_std = np.nan
 
         # update covs (if any)
-        # for cov in self.covs:
-        #     cov.update_cov(self.ID, v, t)
+        for cov in self.covs:
+            cov.update_cov(self.ID, v, t)
 
     def processDecay(self, timestamp):
         factor = 1
@@ -422,7 +422,7 @@ class incStatDB:
         # retrieve/add cov tracker
         inc_cov = self.register_cov(ID1, ID2, Lambda,  t1)
         # Update cov tracker
-        inc_cov.update_cov(ID1, v1, t1)
+        # inc_cov.update_cov(ID1, v1, t1)
         if level == 1:
             return inc_cov.get_stats1()
         else:
